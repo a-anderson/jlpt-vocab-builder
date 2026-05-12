@@ -227,7 +227,7 @@ def load_checkpoint(checkpoint_path: Path) -> set[str]:
 
 def save_checkpoint(done: set[str], checkpoint_path: Path) -> None:
     with open(checkpoint_path, 'w') as f:
-        json.dump(list(done), f)
+        json.dump(list(done), f, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
