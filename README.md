@@ -76,7 +76,7 @@ The pipeline writes rows incrementally and checkpoints after every word, so `--r
 
 ### Parallel runs
 
-Processing all four levels takes several hours. Run one level per terminal for a ~4× speedup:
+Run one level per terminal to process levels concurrently:
 
 ```bash
 python build_jlpt_csv.py --model gemma4:e4b --levels n4 --output n4.csv
