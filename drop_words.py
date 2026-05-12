@@ -1,8 +1,4 @@
-"""Remove words from a CSV output file and its paired checkpoint.
-
-Usage:
-  python drop_words.py 下りる 招致 --output n4.csv
-"""
+"""Remove words from a CSV output file and its paired checkpoint."""
 
 import argparse
 import csv
@@ -23,6 +19,9 @@ def drop_from_csv(csv_path: Path, words: set[str]) -> set[str]:
             else:
                 rows.append(row)
 
+    if not found:
+        return found
+
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
         writer.writeheader()
@@ -36,7 +35,9 @@ def drop_from_checkpoint(checkpoint_path: Path, words: set[str]) -> set[str]:
     if not checkpoint_path.exists():
         return set()
     data = json.loads(checkpoint_path.read_text(encoding='utf-8'))
-    found = words & set(data)
+    found = {w for w in data if w in words}
+    if not found:
+        return found
     checkpoint_path.write_text(
         json.dumps([w for w in data if w not in words], ensure_ascii=False),
         encoding='utf-8',
@@ -45,7 +46,10 @@ def drop_from_checkpoint(checkpoint_path: Path, words: set[str]) -> set[str]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Drop words from CSV and checkpoint.')
+    parser = argparse.ArgumentParser(
+        description='Drop words from a CSV output file and its paired checkpoint.',
+        epilog='Example: python drop_words.py 下りる 招致 --output n4.csv',
+    )
     parser.add_argument('words', nargs='+', help='Words to remove')
     parser.add_argument('--output', required=True, help='CSV file, e.g. n4.csv')
     args = parser.parse_args()

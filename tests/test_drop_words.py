@@ -34,7 +34,8 @@ def sample_checkpoint(tmp_path):
 class TestDropFromCsv:
     def test_removes_matching_rows(self, sample_csv):
         drop_from_csv(sample_csv, {'下りる', '招致'})
-        words = [r['単語'] for r in csv.DictReader(open(sample_csv, encoding='utf-8'))]
+        with open(sample_csv, encoding='utf-8') as f:
+            words = [r['単語'] for r in csv.DictReader(f)]
         assert words == ['食べる']
 
     def test_returns_found_words(self, sample_csv):
@@ -47,18 +48,18 @@ class TestDropFromCsv:
 
     def test_preserves_header(self, sample_csv):
         drop_from_csv(sample_csv, {'下りる'})
-        reader = csv.DictReader(open(sample_csv, encoding='utf-8'))
-        assert reader.fieldnames == CSV_COLUMNS
+        with open(sample_csv, encoding='utf-8') as f:
+            assert csv.DictReader(f).fieldnames == CSV_COLUMNS
 
     def test_no_match_leaves_file_unchanged(self, sample_csv):
+        mtime_before = sample_csv.stat().st_mtime
         drop_from_csv(sample_csv, {'タイプミス'})
-        words = [r['単語'] for r in csv.DictReader(open(sample_csv, encoding='utf-8'))]
-        assert words == ['下りる', '招致', '食べる']
+        assert sample_csv.stat().st_mtime == mtime_before
 
     def test_empty_words_set_leaves_file_unchanged(self, sample_csv):
+        mtime_before = sample_csv.stat().st_mtime
         drop_from_csv(sample_csv, set())
-        words = [r['単語'] for r in csv.DictReader(open(sample_csv, encoding='utf-8'))]
-        assert words == ['下りる', '招致', '食べる']
+        assert sample_csv.stat().st_mtime == mtime_before
 
 
 class TestDropFromCheckpoint:
