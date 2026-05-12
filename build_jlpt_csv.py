@@ -26,6 +26,11 @@ try:
 except ImportError:
     ollama_client = None
 
+try:
+    from json_repair import repair_json
+except ImportError:
+    repair_json = None
+
 LEVELS = ['n4', 'n3', 'n2', 'n1']
 CHADMURO_URL = 'https://raw.githubusercontent.com/chadmuro/jlpt-vocab/main/data/{level}/vocabulary.ts'
 JITENDEX_DIR = Path('jitendex-yomitan')
@@ -124,7 +129,13 @@ def _ollama_chat(model: str, prompt: str) -> str:
 def _parse_json(raw: str) -> dict:
     raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
     raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE)
-    return json.loads(raw.strip())
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        if repair_json is not None:
+            return json.loads(repair_json(raw))
+        raise
 
 
 def ollama_generate(
@@ -187,14 +198,16 @@ Respond ONLY with a JSON object, no markdown, no explanation:
 {french_word_line}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
 }}"""
 
-    try:
-        result = _parse_json(_ollama_chat(model, prompt))
-        if result.get('例文振り仮名'):
-            result['例文振り仮名'] = normalise_furigana(result['例文振り仮名'])
-        return result
-    except Exception as e:
-        print(f'  [Ollama error for {word}]: {e}')
-        return _empty_ollama()
+    for _ in range(2):
+        try:
+            result = _parse_json(_ollama_chat(model, prompt))
+            if result.get('例文振り仮名'):
+                result['例文振り仮名'] = normalise_furigana(result['例文振り仮名'])
+            return result
+        except Exception as e:
+            last_error = e
+    print(f'  [Ollama error for {word}]: {last_error}')
+    return _empty_ollama()
 
 
 def _empty_ollama() -> dict:
