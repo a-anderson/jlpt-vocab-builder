@@ -25,26 +25,35 @@ Output: `jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch accent, 
 ## File structure
 
 ```
-build_jlpt_csv.py       — main pipeline (entry point)
-dictionary.py           — Jitendex + JMdict French index builders
-pitch_accent.py         — Kanjium + NHK + OJAD pitch accent lookup
-generate_pitch_svgs.py  — SVG diagram generator (run after CSV is complete)
+build_jlpt_csv.py           — main pipeline (entry point)
+dictionary.py               — Jitendex + JMdict index builders
+pitch_accent.py             — Kanjium + NHK + OJAD pitch accent lookup
+generate_pitch_svgs.py      — SVG diagram generator (run after CSV is complete)
+download.py                 — auto-download data sources on first run
+add_language_columns.py     — retrofit a finished CSV with a new language
+add_words.py                — append arbitrary words to a CSV
+drop_words.py               — remove words from CSV and checkpoint
 tests/
   test_dictionary.py
   test_pitch_accent.py
   test_furigana.py
   test_normalise.py
+  test_download.py
+  test_add_language_columns.py
+  test_add_words.py
 
-jitendex-yomitan/       — Jitendex (English glosses + POS + example sentences)
-  term_bank_*.json      — 216 files; yomitan term bank format
-JMdict_french/          — JMdict French (French glosses)
-  term_bank_*.json
-nhk_data/
-  ACCDB_unicode.csv     — NHK pitch accent data (local, do not re-download)
-accents.txt             — Kanjium pitch accent data (local, do not re-download)
-jlpt_vocab.csv          — output
-checkpoint.json         — resume state
-pitch_svgs/             — generated SVG files
+data/
+  jitendex-yomitan/         — Jitendex (English glosses + POS + example sentences)
+    term_bank_*.json        — 216 files; yomitan term bank format
+  JMdict_french/            — JMdict French (French glosses)
+    term_bank_*.json
+  JMdict_{lang}/            — Other language glosses (spanish, german, dutch, russian, swedish)
+  nhk_data/
+    ACCDB_unicode.csv       — NHK pitch accent data
+  accents.txt               — Kanjium pitch accent data
+jlpt_vocab.csv              — output
+checkpoint.json             — resume state
+pitch_svgs/                 — generated SVG files
 ```
 
 ---
@@ -53,13 +62,13 @@ pitch_svgs/             — generated SVG files
 
 | Source | Local path | Used for |
 |---|---|---|
-| Jitendex (yomitan) | `jitendex-yomitan/term_bank_*.json` | EN glosses, POS, example sentences |
-| JMdict French | `JMdict_french/term_bank_*.json` | FR glosses |
-| Kanjium accents | `accents.txt` | Pitch accent (primary) |
-| NHK CSV | `nhk_data/ACCDB_unicode.csv` | Pitch accent (fallback) |
+| Jitendex (yomitan) | `data/jitendex-yomitan/term_bank_*.json` | EN glosses, POS, example sentences |
+| JMdict (any lang) | `data/JMdict_{lang}/term_bank_*.json` | Language glosses |
+| Kanjium accents | `data/accents.txt` | Pitch accent (primary) |
+| NHK CSV | `data/nhk_data/ACCDB_unicode.csv` | Pitch accent (fallback) |
 | OJAD API | https://www.ojad.jp/api/v0/words | Pitch accent (last resort only) |
 | chadmuro vocab | fetched from GitHub | Word list (N4–N1) |
-| Ollama (local LLM) | localhost | Sentence generation, FR translation, furigana |
+| Ollama (local LLM) | localhost | Sentence generation, language translation, furigana |
 
 ---
 
@@ -176,14 +185,27 @@ This prevents e.g. `夫` matching inside `大丈夫`.
 ```bash
 source venv/bin/activate
 
-# Full run
+# Full run (French only, default)
 python build_jlpt_csv.py --model gemma4:e4b
 
-# Subset
+# Multiple languages
+python build_jlpt_csv.py --model gemma4:e4b --languages french spanish german
+
+# Subset of levels
 python build_jlpt_csv.py --model gemma4:e4b --levels n4 n3
 
 # Resume after crash
 python build_jlpt_csv.py --model gemma4:e4b --resume
+
+# Repair rows with empty Ollama-generated fields
+python build_jlpt_csv.py --model gemma4:e4b --output n4.csv --repair
+
+# Add a language to a finished CSV
+python add_language_columns.py --language german --output n4.csv --model gemma4:e4b
+
+# Add custom words outside the JLPT list
+python add_words.py 猫背 蹴る --model gemma4:e4b
+python add_words.py 猫背 --output n4.csv --model gemma4:e4b
 
 # Generate SVGs (after CSV is complete)
 python generate_pitch_svgs.py
