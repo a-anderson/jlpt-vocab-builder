@@ -223,6 +223,36 @@ class TestJitendexIndex:
         assert '_pop' not in jitendex_index['食べる']
 
 
+class TestJitendexIndexReading:
+    def test_has_reading(self, jitendex_index):
+        assert '読み' in jitendex_index['食べる']
+        assert jitendex_index['食べる']['読み'] != ''
+
+    def test_reading_is_kana(self, jitendex_index):
+        reading = jitendex_index['食べる']['読み']
+        for ch in reading:
+            assert '぀' <= ch <= 'ヿ' or ch in 'ー', f'{ch!r} is not kana'
+
+
+class TestBuildJmdictIndex:
+    def test_name_importable(self):
+        from dictionary import build_jmdict_index  # confirms rename compiles
+
+    def test_returns_gloss_string(self, tmp_path):
+        import json
+        from dictionary import build_jmdict_index
+        bank = [[
+            '食べる', 'たべる', 'v1', '', 0,
+            ['to eat', 'to consume'], 1, ''
+        ]]
+        (tmp_path / 'term_bank_2.json').write_text(
+            json.dumps(bank), encoding='utf-8'
+        )
+        idx = build_jmdict_index(tmp_path)
+        assert '食べる' in idx
+        assert isinstance(idx['食べる'], str)
+
+
 class TestFrenchIndex:
     def test_index_populated(self, french_index):
         assert len(french_index) > 1_000

@@ -4,7 +4,13 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from build_jlpt_csv import word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama
+from unittest.mock import patch
+
+import build_jlpt_csv
+from build_jlpt_csv import (
+    word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
+    make_csv_columns, ollama_generate_furigana,
+)
 
 
 class TestWordInSentence:
@@ -70,13 +76,75 @@ class TestTsField:
 
 
 class TestEmptyOllama:
-    def test_contains_all_expected_keys(self):
+    def test_contains_base_keys_only_when_no_langs(self):
         result = _empty_ollama()
-        expected = {'例文', '英語例文', '仏語例文', '例文振り仮名', '日本語ターゲット', '仏語訳'}
-        assert set(result.keys()) == expected
+        assert set(result.keys()) == {'例文', '英語例文', '例文振り仮名', '日本語ターゲット'}
 
     def test_all_values_are_empty_strings(self):
         assert all(v == '' for v in _empty_ollama().values())
+
+    def test_empty_ollama_no_langs(self):
+        result = _empty_ollama()
+        assert set(result.keys()) == {'例文', '英語例文', '例文振り仮名', '日本語ターゲット'}
+
+    def test_empty_ollama_includes_all_lang_keys(self):
+        result = _empty_ollama(['french', 'spanish'])
+        assert '仏語例文' in result
+        assert '西語例文' in result
+        assert '仏語訳' in result
+        assert '西語訳' in result
+        assert '例文' in result
+
+
+class TestMakeCsvColumns:
+    def test_french_only(self):
+        cols = make_csv_columns(['french'])
+        assert cols == [
+            '単語', '振り仮名', '品詞', 'ピッチアクセント', 'ピッチアクセント図',
+            '英語訳', '仏語訳', '例文', '例文振り仮名', '英語例文', '仏語例文',
+            '日本語ターゲット', 'レベル',
+        ]
+        assert len(cols) == 13
+
+    def test_two_languages(self):
+        cols = make_csv_columns(['french', 'spanish'])
+        assert '仏語訳' in cols
+        assert '西語訳' in cols
+        assert '仏語例文' in cols
+        assert '西語例文' in cols
+        assert cols.index('仏語訳') < cols.index('西語訳')
+        assert cols.index('仏語例文') < cols.index('西語例文')
+        assert len(cols) == 15
+
+    def test_gloss_before_example(self):
+        cols = make_csv_columns(['french', 'spanish'])
+        gloss_indices = [cols.index('仏語訳'), cols.index('西語訳')]
+        example_indices = [cols.index('仏語例文'), cols.index('西語例文')]
+        assert all(gi < cols.index('例文') for gi in gloss_indices)
+        assert all(ei > cols.index('英語例文') for ei in example_indices)
+
+
+class TestOllamaGenerateFurigana:
+    def test_returns_ruby_html(self):
+        with patch('build_jlpt_csv._ollama_chat', return_value='食[た]べる'):
+            result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
+        assert result == '<ruby>食<rt>た</rt></ruby>べる'
+
+    def test_returns_empty_on_failure(self):
+        with patch('build_jlpt_csv._ollama_chat', side_effect=Exception('fail')):
+            result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
+        assert result == ''
+
+    def test_returns_empty_when_no_client(self):
+        original = build_jlpt_csv.ollama_client
+        try:
+            build_jlpt_csv.ollama_client = None
+            with patch('build_jlpt_csv._ollama_chat') as mock_chat:
+                result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
+            mock_chat.assert_not_called()
+            assert result == ''
+        finally:
+            build_jlpt_csv.ollama_client = original
 
 
 class TestParseJson:
