@@ -7,9 +7,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from unittest.mock import patch
 
 import build_jlpt_csv
+import csv as _csv
+
 from build_jlpt_csv import (
     word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
     make_csv_columns, ollama_generate_furigana,
+    find_repair_candidates, detect_csv_languages,
 )
 
 
@@ -145,6 +148,63 @@ class TestOllamaGenerateFurigana:
             assert result == ''
         finally:
             build_jlpt_csv.ollama_client = original
+
+
+def _write_csv(path, rows, columns):
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        w = _csv.DictWriter(f, fieldnames=columns)
+        w.writeheader()
+        w.writerows(rows)
+
+
+_REPAIR_COLS = make_csv_columns(['french'])
+
+
+class TestFindRepairCandidates:
+    def test_returns_empty_field_words(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        rows = [
+            {c: 'x' for c in _REPAIR_COLS} | {'単語': '食べる'},
+            {c: 'x' for c in _REPAIR_COLS} | {'単語': '走る', '例文振り仮名': ''},
+        ]
+        _write_csv(path, rows, _REPAIR_COLS)
+        result = find_repair_candidates(path, ['例文振り仮名'])
+        assert '走る' in result
+        assert '食べる' not in result
+
+    def test_ignores_complete_rows(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        rows = [{c: 'x' for c in _REPAIR_COLS} | {'単語': '食べる'}]
+        _write_csv(path, rows, _REPAIR_COLS)
+        assert find_repair_candidates(path, ['例文振り仮名']) == set()
+
+    def test_missing_csv_returns_empty_set(self, tmp_path):
+        assert find_repair_candidates(tmp_path / 'missing.csv', ['例文振り仮名']) == set()
+
+    def test_checks_only_given_cols(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        rows = [{c: '' for c in _REPAIR_COLS} | {'単語': '食べる', '例文振り仮名': 'ok'}]
+        _write_csv(path, rows, _REPAIR_COLS)
+        # Only checking 例文振り仮名 which is non-empty; other empty cols not in repair_cols
+        assert find_repair_candidates(path, ['例文振り仮名']) == set()
+
+
+class TestDetectCsvLanguages:
+    def test_single_language(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        cols = make_csv_columns(['french'])
+        _write_csv(path, [], cols)
+        assert detect_csv_languages(path) == ['french']
+
+    def test_multiple_languages(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        cols = make_csv_columns(['french', 'spanish'])
+        _write_csv(path, [], cols)
+        result = detect_csv_languages(path)
+        assert result == ['french', 'spanish']
+
+    def test_missing_file_returns_empty(self, tmp_path):
+        assert detect_csv_languages(tmp_path / 'missing.csv') == []
 
 
 class TestParseJson:

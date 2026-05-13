@@ -17,7 +17,7 @@ import requests
 from tqdm import tqdm
 
 from dictionary import build_jitendex_index, build_jmdict_index
-from drop_words import load_checkpoint, save_checkpoint
+from drop_words import drop_from_csv, drop_from_checkpoint, load_checkpoint, save_checkpoint
 from furigana import bracket_to_ruby, normalise_furigana
 from normalise import normalise_word
 from pitch_accent import get_pitch_columns, plain_kana
@@ -271,6 +271,31 @@ def _empty_ollama(langs: list[str] | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Repair helpers
+# ---------------------------------------------------------------------------
+
+def find_repair_candidates(csv_path: Path, repair_cols: list[str]) -> set[str]:
+    """Return words that have at least one empty value in repair_cols."""
+    if not csv_path.exists():
+        return set()
+    candidates = set()
+    with open(csv_path, newline='', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            if any(not row.get(col, '').strip() for col in repair_cols if col in row):
+                candidates.add(row['単語'])
+    return candidates
+
+
+def detect_csv_languages(csv_path: Path) -> list[str]:
+    """Return language keys present in the CSV header, in LANGUAGES order."""
+    if not csv_path.exists():
+        return []
+    with open(csv_path, newline='', encoding='utf-8') as f:
+        fieldnames = csv.DictReader(f).fieldnames or []
+    return [lang for lang in LANGUAGES if f'{LANGUAGES[lang][0]}語訳' in fieldnames]
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -285,11 +310,33 @@ def main() -> None:
         choices=list(LANGUAGES.keys()),
         help='Languages to include (default: french)',
     )
+    parser.add_argument('--repair', action='store_true',
+                        help='Find rows with empty Ollama-generated fields and reprocess them')
     args = parser.parse_args()
 
     output_path = Path(args.output)
     checkpoint_path = output_path.with_name(output_path.stem + '_checkpoint.json')
-    done = load_checkpoint(checkpoint_path) if args.resume else set()
+    done = load_checkpoint(checkpoint_path) if (args.resume or args.repair) else set()
+
+    if args.repair:
+        # Infer languages from the CSV header rather than requiring --languages.
+        # This prevents silently checking the wrong columns if the user forgets to
+        # pass --languages when their CSV has multiple languages.
+        effective_langs = detect_csv_languages(output_path) or args.languages
+        repair_cols = ['例文振り仮名', '日本語ターゲット', '例文'] + [
+            f'{LANGUAGES[l][0]}語例文' for l in effective_langs
+        ]
+        candidates = find_repair_candidates(output_path, repair_cols)
+        if candidates:
+            print(f'Repairing {len(candidates)} incomplete rows...')
+            drop_from_csv(output_path, candidates)
+            drop_from_checkpoint(checkpoint_path, candidates)
+            done -= candidates
+        args.resume = True
+        args.languages = effective_langs
+
+    from download import ensure_all
+    ensure_all(args.languages)
 
     print('Fetching word lists...')
     all_words: list[dict] = []
@@ -405,6 +452,13 @@ def main() -> None:
             csvfile.flush()
             done.add(word)
             save_checkpoint(done, checkpoint_path)
+
+    end_repair_cols = ['例文振り仮名', '日本語ターゲット', '例文'] + [
+        f'{LANGUAGES[l][0]}語例文' for l in args.languages
+    ]
+    incomplete = find_repair_candidates(output_path, end_repair_cols)
+    if incomplete:
+        print(f'\nWarning: {len(incomplete)} rows have empty fields. Re-run with --repair to fix them.')
 
     print(f'\nDone. {len(done)} rows → {output_path}')
 
