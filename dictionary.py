@@ -189,6 +189,7 @@ def build_jitendex_index(directory: Path) -> dict[str, dict]:
             index[term] = {
                 '品詞': _codes_to_hinshi(pos_codes),
                 '英語訳': '; '.join(glosses),
+                '読み': entry[1] if len(entry) > 1 else '',
                 '例文': example[0] if example else '',
                 '英語例文': example[1] if example else '',
                 '例文振り仮名': example[2] if example else '',
@@ -201,11 +202,8 @@ def build_jitendex_index(directory: Path) -> dict[str, dict]:
     return index
 
 
-def build_french_index(directory: Path) -> dict[str, str]:
-    """Build a headword → French glosses index from JMdict French term banks.
-
-    Definitions are a plain list of strings. Keeps highest-popularity entry.
-    """
+def build_jmdict_index(directory: Path) -> dict[str, str]:
+    """Build a headword → gloss index from a JMdict yomitan term bank directory."""
     index: dict[str, tuple[str, int]] = {}
 
     for path in sorted(directory.glob('term_bank_*.json')):

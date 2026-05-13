@@ -16,7 +16,7 @@ import fugashi
 import requests
 from tqdm import tqdm
 
-from dictionary import build_french_index, build_jitendex_index
+from dictionary import build_jitendex_index, build_jmdict_index
 from drop_words import load_checkpoint, save_checkpoint
 from furigana import bracket_to_ruby, normalise_furigana
 from normalise import normalise_word
@@ -38,11 +38,26 @@ DATA_DIR = Path('data')
 JITENDEX_DIR = DATA_DIR / 'jitendex-yomitan'
 OUTPUT_CSV = Path('jlpt_vocab.csv')
 
-CSV_COLUMNS = [
-    '単語', '振り仮名', '品詞', 'ピッチアクセント', 'ピッチアクセント図',
-    '英語訳', '仏語訳', '例文', '例文振り仮名', '英語例文', '仏語例文',
-    '日本語ターゲット', 'レベル',
-]
+LANGUAGES: dict[str, tuple[str, str]] = {
+    'french':  ('仏', 'JMdict_french'),
+    'spanish': ('西', 'JMdict_spanish'),
+    'german':  ('独', 'JMdict_german'),
+    'dutch':   ('蘭', 'JMdict_dutch'),
+    'russian': ('露', 'JMdict_russian'),
+    'swedish': ('瑞', 'JMdict_swedish'),
+}
+
+
+def make_csv_columns(langs: list[str]) -> list[str]:
+    """Build the ordered column list for the given language selection."""
+    cols = ['単語', '振り仮名', '品詞', 'ピッチアクセント', 'ピッチアクセント図', '英語訳']
+    for lang in langs:
+        cols.append(f'{LANGUAGES[lang][0]}語訳')
+    cols += ['例文', '例文振り仮名', '英語例文']
+    for lang in langs:
+        cols.append(f'{LANGUAGES[lang][0]}語例文')
+    cols += ['日本語ターゲット', 'レベル']
+    return cols
 
 
 # ---------------------------------------------------------------------------
@@ -147,15 +162,26 @@ def ollama_generate(
     need_sentence: bool,
     existing_jp: str = '',
     existing_en: str = '',
-    need_french_gloss: bool = False,
+    langs: list[str] | None = None,
+    need_gloss_for: list[str] | None = None,
 ) -> dict:
     """Call Ollama to generate or complete sentence data for a word."""
     if ollama_client is None:
-        return _empty_ollama()
+        return _empty_ollama(langs)
 
-    french_word_line = '  "仏語訳": "<French translation(s) of the word, semicolon-separated if multiple>",\n' if need_french_gloss else ''
+    langs = langs or []
+    need_gloss_for = need_gloss_for or []
+
+    gloss_lines = ''.join(
+        f'  "{LANGUAGES[l][0]}語訳": "<{l.capitalize()} translation(s) of the word, semicolon-separated if multiple>",\n'
+        for l in need_gloss_for
+    )
 
     if need_sentence:
+        sentence_lang_lines = ''.join(
+            f'  "{LANGUAGES[l][0]}語例文": "<natural {l.capitalize()} translation>",\n'
+            for l in langs
+        )
         prompt = f"""You are creating Japanese language study materials for a JLPT learner.
 
 Target word: {word}
@@ -176,10 +202,13 @@ Respond ONLY with a JSON object, no markdown, no explanation:
   "例文": "<sentence in natural Japanese>",
   "例文振り仮名": "<sentence with ruby tags on kanji only>",
   "英語例文": "<natural English translation>",
-  "仏語例文": "<natural French translation>",
-{french_word_line}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
+{sentence_lang_lines}{gloss_lines}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
 }}"""
     else:
+        sentence_lang_lines = ''.join(
+            f'  "{LANGUAGES[l][0]}語例文": "<natural {l.capitalize()} translation of the Japanese sentence>",\n'
+            for l in langs
+        )
         prompt = f"""You are creating Japanese language study materials for a JLPT learner.
 
 Target word: {word}
@@ -194,9 +223,8 @@ Rules for 例文振り仮名:
 
 Respond ONLY with a JSON object, no markdown, no explanation:
 {{
-  "仏語例文": "<natural French translation of the Japanese sentence>",
   "例文振り仮名": "<sentence with ruby tags on kanji only>",
-{french_word_line}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
+{sentence_lang_lines}{gloss_lines}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
 }}"""
 
     for _ in range(2):
@@ -208,11 +236,38 @@ Respond ONLY with a JSON object, no markdown, no explanation:
         except Exception as e:
             last_error = e
     print(f'  [Ollama error for {word}]: {last_error}')
-    return _empty_ollama()
+    return _empty_ollama(langs)
 
 
-def _empty_ollama() -> dict:
-    return {'例文': '', '英語例文': '', '仏語例文': '', '例文振り仮名': '', '日本語ターゲット': '', '仏語訳': ''}
+def ollama_generate_furigana(word: str, reading: str, model: str) -> str:
+    """Ask Ollama for per-character ruby HTML for a mixed kanji+kana word."""
+    if ollama_client is None:
+        return ''
+    prompt = f"""Convert the Japanese word to bracket-notation furigana.
+Word: {word}
+Reading: {reading}
+
+Rules:
+- Only add readings on kanji characters, never on hiragana
+- Format: kanji[reading] for each kanji group, e.g. 食[た]べる
+
+Respond with ONLY the bracket-notation string, nothing else."""
+    for _ in range(2):
+        try:
+            raw = _ollama_chat(model, prompt).strip()
+            return bracket_to_ruby(raw)
+        except Exception:
+            pass
+    return ''
+
+
+def _empty_ollama(langs: list[str] | None = None) -> dict:
+    base = {'例文': '', '英語例文': '', '例文振り仮名': '', '日本語ターゲット': ''}
+    for lang in (langs or []):
+        abbrev = LANGUAGES[lang][0]
+        base[f'{abbrev}語訳'] = ''
+        base[f'{abbrev}語例文'] = ''
+    return base
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +280,11 @@ def main() -> None:
     parser.add_argument('--levels', nargs='+', default=LEVELS, choices=LEVELS)
     parser.add_argument('--resume', action='store_true', help='Skip already-processed words')
     parser.add_argument('--output', default=str(OUTPUT_CSV))
+    parser.add_argument(
+        '--languages', nargs='+', default=['french'],
+        choices=list(LANGUAGES.keys()),
+        help='Languages to include (default: french)',
+    )
     args = parser.parse_args()
 
     output_path = Path(args.output)
@@ -248,12 +308,17 @@ def main() -> None:
 
     print('Building dictionary indexes...')
     jitendex = build_jitendex_index(JITENDEX_DIR)
-    french = build_french_index(DATA_DIR / 'JMdict_french')
-    print(f'  Jitendex: {len(jitendex)} entries, JMdict French: {len(french)} entries')
+    lang_indexes: dict[str, dict[str, str]] = {
+        lang: build_jmdict_index(DATA_DIR / dir_name)
+        for lang, (_, dir_name) in LANGUAGES.items()
+        if lang in args.languages
+    }
+    print(f'  Jitendex: {len(jitendex)} entries')
 
+    csv_columns = make_csv_columns(args.languages)
     mode = 'a' if (output_path.exists() and args.resume) else 'w'
     with open(output_path, mode, newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=CSV_COLUMNS)
+        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         if mode == 'w':
             writer.writeheader()
 
@@ -274,8 +339,14 @@ def main() -> None:
             英語例文 = jm.get('英語例文', '')
             例文振り仮名 = jm.get('例文振り仮名', '')
 
-            仏語訳 = next((french[f] for f in lookup_forms if f in french), '')
-            need_french_gloss = not bool(仏語訳) and bool(英語訳)
+            lang_glosses: dict[str, str] = {}
+            need_gloss_for: list[str] = []
+            for lang in args.languages:
+                abbrev = LANGUAGES[lang][0]
+                gloss = next((lang_indexes[lang][f] for f in lookup_forms if f in lang_indexes[lang]), '')
+                lang_glosses[f'{abbrev}語訳'] = gloss
+                if not gloss and 英語訳:
+                    need_gloss_for.append(lang)
 
             # Verify Jitendex sentence contains the word as a real morphological token
             if 例文 and not word_in_sentence(lookup_forms[0], 例文):
@@ -284,32 +355,35 @@ def main() -> None:
                 例文振り仮名 = ''
 
             if 例文:
-                # Furigana already extracted from Jitendex; only call Ollama for FR + target
                 ollama_data = ollama_generate(
                     word, args.model, 英語訳, 品詞,
                     need_sentence=False, existing_jp=例文, existing_en=英語例文,
-                    need_french_gloss=need_french_gloss,
+                    langs=args.languages, need_gloss_for=need_gloss_for,
                 )
-                if need_french_gloss:
-                    仏語訳 = ollama_data.get('仏語訳', '')
-                仏語例文 = ollama_data.get('仏語例文', '')
-                日本語ターゲット = ollama_data.get('日本語ターゲット', '') or extract_target(lookup_forms[0], 例文)
-                if not 例文振り仮名:
-                    例文振り仮名 = ollama_data.get('例文振り仮名', '')
             else:
                 ollama_data = ollama_generate(
                     word, args.model, 英語訳, 品詞,
                     need_sentence=True,
-                    need_french_gloss=need_french_gloss,
+                    langs=args.languages, need_gloss_for=need_gloss_for,
                 )
-                if need_french_gloss:
-                    仏語訳 = ollama_data.get('仏語訳', '')
+
+            for lang in need_gloss_for:
+                abbrev = LANGUAGES[lang][0]
+                lang_glosses[f'{abbrev}語訳'] = ollama_data.get(f'{abbrev}語訳', '')
+
+            lang_examples: dict[str, str] = {
+                f'{LANGUAGES[l][0]}語例文': ollama_data.get(f'{LANGUAGES[l][0]}語例文', '')
+                for l in args.languages
+            }
+
+            if not 例文:
                 例文 = ollama_data.get('例文', '')
                 英語例文 = ollama_data.get('英語例文', '')
-                仏語例文 = ollama_data.get('仏語例文', '')
                 例文振り仮名 = ollama_data.get('例文振り仮名', '')
-                日本語ターゲット = ollama_data.get('日本語ターゲット', '') or extract_target(lookup_forms[0], 例文)
+            elif not 例文振り仮名:
+                例文振り仮名 = ollama_data.get('例文振り仮名', '')
 
+            日本語ターゲット = ollama_data.get('日本語ターゲット', '') or extract_target(lookup_forms[0], 例文)
             reading = plain_kana(entry['振り仮名_raw'])
             pitch_cols = get_pitch_columns(lookup_forms[0], reading)
 
@@ -320,11 +394,11 @@ def main() -> None:
                 'ピッチアクセント': pitch_cols['ピッチアクセント'],
                 'ピッチアクセント図': pitch_cols['ピッチアクセント図'],
                 '英語訳': 英語訳,
-                '仏語訳': 仏語訳,
+                **lang_glosses,
                 '例文': 例文,
                 '例文振り仮名': 例文振り仮名,
                 '英語例文': 英語例文,
-                '仏語例文': 仏語例文,
+                **lang_examples,
                 '日本語ターゲット': 日本語ターゲット,
                 'レベル': entry['レベル'],
             }.items()})

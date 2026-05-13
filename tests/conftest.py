@@ -130,5 +130,5 @@ def jitendex_index(jitendex_dir):
 
 @pytest.fixture(scope='session')
 def french_index(french_dir):
-    from dictionary import build_french_index
-    return build_french_index(french_dir)
+    from dictionary import build_jmdict_index
+    return build_jmdict_index(french_dir)
