@@ -1,12 +1,12 @@
 # jlpt-vocab-builder
 
-Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and French glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
+Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and optional language glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
 
 ---
 
 ## Output
 
-`jlpt_vocab.csv` — one row per word, 13 columns:
+`jlpt_vocab.csv` — one row per word, 13+ columns depending on languages selected:
 
 | Column | Example |
 |---|---|
@@ -32,14 +32,15 @@ Furigana columns use HTML `<ruby>` tags. Enable **Allow HTML in fields** when im
 
 - Python 3.12+
 - [Ollama](https://ollama.com) running locally with a model pulled, e.g. `ollama pull gemma4:e4b`
-- The following data files downloaded to the project root:
+
+Data files are **downloaded automatically on first run** into the `data/` directory. Manual download locations (if you prefer to pre-populate):
 
 | File | Source |
 |---|---|
-| `jitendex-yomitan/` | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip |
-| `JMdict_french/` | [JMdict French for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_french.zip) — extract zip |
-| `nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv) |
-| `accents.txt` | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt) |
+| `data/jitendex-yomitan/` | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder |
+| `data/JMdict_french/` | [JMdict French for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_french.zip) — extract zip contents into folder |
+| `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv) |
+| `data/accents.txt` | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt) |
 
 ---
 
@@ -59,10 +60,13 @@ python -m unidic download
 ```bash
 source venv/bin/activate
 
-# Full run (all levels)
+# Full run (all levels, French only)
 python build_jlpt_csv.py --model gemma4:e4b
 
-# Subset
+# Multiple languages
+python build_jlpt_csv.py --model gemma4:e4b --languages french spanish german
+
+# Subset of levels
 python build_jlpt_csv.py --model gemma4:e4b --levels n4 n3
 
 # Resume after interruption
@@ -92,7 +96,52 @@ head -1 n4.csv > jlpt_vocab.csv
 for f in n4.csv n3.csv n2.csv n1.csv; do tail -n +2 "$f"; done >> jlpt_vocab.csv
 ```
 
-### Dropping words
+---
+
+## Repair incomplete rows
+
+If Ollama fails mid-run, some rows may have empty fields. Re-run with `--repair` to find and reprocess them:
+
+```bash
+python build_jlpt_csv.py --model gemma4:e4b --output n4.csv --repair
+```
+
+The pipeline auto-detects which languages are in the CSV — no need to pass `--languages`.
+
+---
+
+## Add a language to an existing CSV
+
+To retrofit a finished CSV with a new language's glosses and sentence translations without reprocessing everything:
+
+```bash
+python add_language_columns.py --language german --output n4.csv --model gemma4:e4b
+```
+
+Supported languages: `french`, `spanish`, `german`, `dutch`, `russian`, `swedish`.
+
+The script checkpoints after each row and can be safely interrupted and resumed.
+
+---
+
+## Add custom words outside the JLPT list
+
+```bash
+# Write to custom_words.csv (created if absent)
+python add_words.py 猫背 蹴る --model gemma4:e4b
+
+# Append to an existing CSV
+python add_words.py 猫背 --output n4.csv --model gemma4:e4b
+
+# With extra languages
+python add_words.py 猫背 --output custom_words.csv --model gemma4:e4b --languages french spanish
+```
+
+Custom words are written with `レベル = Custom`.
+
+---
+
+## Dropping words
 
 To remove words from a CSV and its paired checkpoint (e.g. before reprocessing failed rows):
 
@@ -101,6 +150,18 @@ python drop_words.py 下りる 招致 --output n4.csv
 ```
 
 Then re-run with `--resume` to regenerate just those rows.
+
+---
+
+## Migration (existing users)
+
+If you set up the project before the `data/` restructure, move your existing data files:
+
+```bash
+mkdir -p data/nhk_data
+mv jitendex-yomitan JMdict_french accents.txt data/
+mv nhk_data/ACCDB_unicode.csv data/nhk_data/
+```
 
 ---
 
@@ -137,5 +198,5 @@ python -m pytest tests/ -v
 |---|---|---|
 | [chadmuro/jlpt-vocab](https://github.com/chadmuro/jlpt-vocab) | Word lists | MIT |
 | [Jitendex](https://github.com/stephenmk/stephenmk.github.io) | EN glosses, POS, example sentences | CC BY-SA 4.0 |
-| [JMdict French](https://github.com/yomidevs/jmdict-yomitan) | French glosses | CC BY-SA 4.0 |
+| [JMdict (yomidevs)](https://github.com/yomidevs/jmdict-yomitan) | Language glosses | CC BY-SA 4.0 |
 | Kanjium / NHK pitch data | Pitch accent | Derived from commercial dictionaries — personal study only |
