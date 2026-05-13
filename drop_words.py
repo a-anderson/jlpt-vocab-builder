@@ -5,15 +5,15 @@ import csv
 import json
 from pathlib import Path
 
-from build_jlpt_csv import CSV_COLUMNS
-
 
 def drop_from_csv(csv_path: Path, words: set[str]) -> set[str]:
     """Rewrite csv_path without rows matching words. Returns words that were found."""
     rows = []
     found = set()
     with open(csv_path, newline='', encoding='utf-8') as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames or []
+        for row in reader:
             if row['単語'] in words:
                 found.add(row['単語'])
             else:
@@ -23,7 +23,7 @@ def drop_from_csv(csv_path: Path, words: set[str]) -> set[str]:
         return found
 
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -43,6 +43,18 @@ def drop_from_checkpoint(checkpoint_path: Path, words: set[str]) -> set[str]:
         encoding='utf-8',
     )
     return found
+
+
+def load_checkpoint(checkpoint_path: Path) -> set[str]:
+    if checkpoint_path.exists():
+        with open(checkpoint_path) as f:
+            return set(json.load(f))
+    return set()
+
+
+def save_checkpoint(done: set[str], checkpoint_path: Path) -> None:
+    with open(checkpoint_path, 'w') as f:
+        json.dump(list(done), f, ensure_ascii=False)
 
 
 def main():

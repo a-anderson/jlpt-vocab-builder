@@ -17,6 +17,7 @@ import requests
 from tqdm import tqdm
 
 from dictionary import build_french_index, build_jitendex_index
+from drop_words import load_checkpoint, save_checkpoint
 from furigana import bracket_to_ruby, normalise_furigana
 from normalise import normalise_word
 from pitch_accent import get_pitch_columns, plain_kana
@@ -212,22 +213,6 @@ Respond ONLY with a JSON object, no markdown, no explanation:
 
 def _empty_ollama() -> dict:
     return {'例文': '', '英語例文': '', '仏語例文': '', '例文振り仮名': '', '日本語ターゲット': '', '仏語訳': ''}
-
-
-# ---------------------------------------------------------------------------
-# Checkpoint
-# ---------------------------------------------------------------------------
-
-def load_checkpoint(checkpoint_path: Path) -> set[str]:
-    if checkpoint_path.exists():
-        with open(checkpoint_path) as f:
-            return set(json.load(f))
-    return set()
-
-
-def save_checkpoint(done: set[str], checkpoint_path: Path) -> None:
-    with open(checkpoint_path, 'w') as f:
-        json.dump(list(done), f, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
