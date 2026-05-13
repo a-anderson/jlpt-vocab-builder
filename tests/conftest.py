@@ -114,12 +114,12 @@ def sample_ruby_node():
 
 @pytest.fixture(scope='session')
 def jitendex_dir():
-    return REPO_ROOT / 'jitendex-yomitan'
+    return REPO_ROOT / 'data' / 'jitendex-yomitan'
 
 
 @pytest.fixture(scope='session')
 def french_dir():
-    return REPO_ROOT / 'JMdict_french'
+    return REPO_ROOT / 'data' / 'JMdict_french'
 
 
 @pytest.fixture(scope='session')

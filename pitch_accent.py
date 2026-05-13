@@ -8,8 +8,8 @@ from pathlib import Path
 
 import requests
 
-KANJIUM_LOCAL = Path('accents.txt')
-NHK_CSV_LOCAL = Path('nhk_data/ACCDB_unicode.csv')
+KANJIUM_LOCAL = Path('data/accents.txt')
+NHK_CSV_LOCAL = Path('data/nhk_data/ACCDB_unicode.csv')
 OJAD_URL = 'https://www.ojad.jp/api/v0/words'
 OJAD_DELAY = 1.5
 

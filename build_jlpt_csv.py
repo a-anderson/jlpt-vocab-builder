@@ -34,8 +34,8 @@ except ImportError:
 
 LEVELS = ['n4', 'n3', 'n2', 'n1']
 CHADMURO_URL = 'https://raw.githubusercontent.com/chadmuro/jlpt-vocab/main/data/{level}/vocabulary.ts'
-JITENDEX_DIR = Path('jitendex-yomitan')
-FRENCH_DIR = Path('JMdict_french')
+DATA_DIR = Path('data')
+JITENDEX_DIR = DATA_DIR / 'jitendex-yomitan'
 OUTPUT_CSV = Path('jlpt_vocab.csv')
 
 CSV_COLUMNS = [
@@ -248,7 +248,7 @@ def main() -> None:
 
     print('Building dictionary indexes...')
     jitendex = build_jitendex_index(JITENDEX_DIR)
-    french = build_french_index(FRENCH_DIR)
+    french = build_french_index(DATA_DIR / 'JMdict_french')
     print(f'  Jitendex: {len(jitendex)} entries, JMdict French: {len(french)} entries')
 
     mode = 'a' if (output_path.exists() and args.resume) else 'w'

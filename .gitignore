@@ -4,10 +4,7 @@ __pycache__/
 .DS_Store
 
 # downloaded data sources
-accents.txt
-jitendex-yomitan/
-JMdict_french/
-nhk_data/
+data/
 
 # output files
 jlpt_vocab.csv
