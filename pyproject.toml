@@ -26,3 +26,4 @@ include = ["jlpt_vocab*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["requires_unidic: tests that need the full UniDic (python -m unidic download)"]

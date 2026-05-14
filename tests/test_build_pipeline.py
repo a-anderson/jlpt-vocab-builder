@@ -11,8 +11,10 @@ from jlpt_vocab.pipeline import (
     make_csv_columns, ollama_generate_furigana,
     find_repair_candidates, detect_csv_languages,
 )
+from tests.conftest import requires_unidic
 
 
+@requires_unidic
 class TestWordInSentence:
     def test_exact_match(self):
         assert word_in_sentence('食べる', 'もっと果物を食べるべきです。')
@@ -38,6 +40,7 @@ class TestWordInSentence:
         assert not word_in_sentence('病院', '学校へ行きます。')
 
 
+@requires_unidic
 class TestExtractTarget:
     def test_returns_surface_form(self):
         # fugashi splits 食べた into 食べ (stem, lemma=食べる) + た (aux)

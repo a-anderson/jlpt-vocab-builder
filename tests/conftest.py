@@ -2,7 +2,22 @@
 
 import json
 import pytest
+import fugashi
 from pathlib import Path
+
+
+def _has_full_unidic() -> bool:
+    try:
+        fugashi.Tagger()
+        return True
+    except Exception:
+        return False
+
+
+requires_unidic = pytest.mark.skipif(
+    not _has_full_unidic(),
+    reason='full UniDic not downloaded — run: python -m unidic download',
+)
 
 REPO_ROOT = Path(__file__).parent.parent
 
