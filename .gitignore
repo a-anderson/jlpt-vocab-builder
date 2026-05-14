@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 *.egg-info/
+.vscode/
 
 # downloaded data sources
 data/
