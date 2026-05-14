@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from jlpt_vocab import pipeline as build_jlpt_csv
+from jlpt_vocab import pipeline
 import csv as _csv
 
 from jlpt_vocab.pipeline import (
@@ -136,15 +136,15 @@ class TestOllamaGenerateFurigana:
         assert result == ''
 
     def test_returns_empty_when_no_client(self):
-        original = build_jlpt_csv.ollama_client
+        original = pipeline.ollama_client
         try:
-            build_jlpt_csv.ollama_client = None
+            pipeline.ollama_client = None
             with patch('jlpt_vocab.pipeline._ollama_chat') as mock_chat:
                 result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
             mock_chat.assert_not_called()
             assert result == ''
         finally:
-            build_jlpt_csv.ollama_client = original
+            pipeline.ollama_client = original
 
 
 def _write_csv(path, rows, columns):

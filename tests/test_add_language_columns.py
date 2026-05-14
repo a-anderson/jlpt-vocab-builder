@@ -1,4 +1,4 @@
-"""Tests for add_language_columns.py."""
+"""Tests for add_language.py."""
 
 import csv
 import json
