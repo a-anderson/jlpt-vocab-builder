@@ -272,10 +272,12 @@ def process_word(
     lang_indexes: dict[str, dict],
     langs: list[str],
     en_gloss_fallback: str = '',
-) -> dict:
+) -> tuple[dict, list[str], str]:
     """Resolve dictionary data and run Ollama for a single word.
 
-    Returns content columns plus 'lookup_forms' and '読み' for caller use.
+    Returns (content, lookup_forms, jitendex_reading) where content contains
+    only CSV column fields and the other two values are for caller use (pitch
+    lookup, furigana generation).
     """
     norm = normalise_word(word)
     lookup_forms = norm['lookup_forms']
@@ -330,18 +332,17 @@ def process_word(
 
     日本語ターゲット = ollama_data.get('日本語ターゲット', '') or extract_target(lookup_forms[0], 例文)
 
-    return {
+    content = {
         '品詞': 品詞,
         '英語訳': 英語訳,
-        '例文': 例文,
-        '英語例文': 英語例文,
-        '例文振り仮名': 例文振り仮名,
-        '日本語ターゲット': 日本語ターゲット,
-        '読み': jm.get('読み', ''),
-        'lookup_forms': lookup_forms,
         **lang_glosses,
+        '例文': 例文,
+        '例文振り仮名': 例文振り仮名,
+        '英語例文': 英語例文,
         **lang_examples,
+        '日本語ターゲット': 日本語ターゲット,
     }
+    return content, lookup_forms, jm.get('読み', '')
 
 
 # ---------------------------------------------------------------------------

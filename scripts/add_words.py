@@ -68,10 +68,9 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
             if word in done:
                 continue
 
-            result = process_word(word, model, jitendex, lang_indexes, langs)
-            lookup_forms = result.pop('lookup_forms')
-            jitendex_reading = result.pop('読み')
-
+            content, lookup_forms, jitendex_reading = process_word(
+                word, model, jitendex, lang_indexes, langs,
+            )
             振り仮名 = _word_furigana(word, jitendex_reading, model)
             reading = plain_kana(word)
             pitch_cols = get_pitch_columns(lookup_forms[0], reading)
@@ -81,7 +80,7 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
                 '振り仮名': 振り仮名,
                 'ピッチアクセント': pitch_cols['ピッチアクセント'],
                 'ピッチアクセント図': pitch_cols['ピッチアクセント図'],
-                **result,
+                **content,
                 'レベル': 'Custom',
             }.items()})
             f.flush()

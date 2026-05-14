@@ -13,6 +13,7 @@ NHK_CSV_LOCAL = Path('data/nhk_data/ACCDB_unicode.csv')
 OJAD_URL = 'https://www.ojad.jp/api/v0/words'
 OJAD_DELAY = 1.5
 
+# not thread-safe; this tool is single-process only
 _kanjium_index: dict[str, int] | None = None
 _nhk_index: dict[str, int] | None = None
 
