@@ -74,6 +74,8 @@ python scripts/build.py --model gemma4:e4b --levels n4 n3
 python scripts/build.py --model gemma4:e4b --resume
 
 # Generate pitch accent SVGs (run once after CSV is complete)
+# SVGs are programmatically rendered from the pitch data in the CSV —
+# one file per unique (mora_count, pattern) combination, e.g. 3_2.svg.
 python scripts/generate_svgs.py
 ```
 
@@ -177,19 +179,6 @@ python scripts/drop_words.py 下りる 招致 --output output/n4.csv
 ```
 
 Then re-run with `--resume` to regenerate just those rows.
-
----
-
-## Migration (existing users)
-
-If you set up the project before the `output/` restructure, move your existing files:
-
-```bash
-mkdir -p output
-mv n*.csv n*_checkpoint.json output/
-mv pitch_svgs/ output/
-pip install -e .
-```
 
 ---
 
