@@ -1,5 +1,9 @@
 # JLPT Vocab Builder
 
+[![tests](https://github.com/a-anderson/jlpt-vocab-builder/actions/workflows/test.yml/badge.svg)](https://github.com/a-anderson/jlpt-vocab-builder/actions/workflows/test.yml)
+[![python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and optional language glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
 
 ---
@@ -74,9 +78,10 @@ python scripts/build.py --model gemma4:e4b --levels n4 n3
 python scripts/build.py --model gemma4:e4b --resume
 
 # Generate pitch accent SVGs (run once after CSV is complete)
-# SVGs are programmatically rendered from the pitch data in the CSV —
-# one file per unique (mora_count, pattern) combination, e.g. 3_2.svg.
 python scripts/generate_svgs.py
+
+# Generate pitch accent SVGs from a specified CSV file
+python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs/
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
