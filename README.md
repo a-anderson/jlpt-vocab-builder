@@ -10,7 +10,7 @@ Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Ank
 
 ## Output
 
-`output/jlpt_vocab.csv` — one row per word, 13+ columns depending on languages selected:
+`output/jlpt_vocab.csv` — one row per word, 11 columns by default (English only):
 
 | Column                             | Example                                     |
 | ---------------------------------- | ------------------------------------------- |
@@ -20,13 +20,13 @@ Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Ank
 | ピッチアクセント (pitch pattern)   | `2`                                         |
 | ピッチアクセント図 (pitch diagram) | `3_2.svg`                                   |
 | 英語訳 (English gloss)             | to eat; to consume                          |
-| 仏語訳 (French gloss)              | manger; consommer                           |
 | 例文 (example sentence)            | 毎朝ご飯を食べる。                          |
 | 例文振り仮名 (sentence furigana)   | `<ruby>毎朝<rt>まいあさ</rt></ruby>ご飯を…` |
 | 英語例文 (English sentence)        | I eat rice every morning.                   |
-| 仏語例文 (French sentence)         | Je mange du riz chaque matin.               |
 | 日本語ターゲット (surface form)    | 食べた                                      |
 | レベル (JLPT level)                | N4                                          |
+
+With `--languages`, two columns are added per language: a gloss column (e.g. `仏語訳`) and a sentence column (e.g. `仏語例文`).
 
 Furigana columns use HTML `<ruby>` tags. Enable **Allow HTML in fields** when importing into Anki.
 
@@ -42,7 +42,7 @@ Data files are **downloaded automatically on first run** into the `data/` direct
 | File                              | Source                                                                                                                                                    |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `data/jitendex-yomitan/`          | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder |
-| `data/JMdict_french/`             | [JMdict French for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_french.zip) — extract zip contents into folder     |
+| `data/JMdict_{lang}/`             | [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest) — only needed when passing `--languages`; extract zip contents into folder |
 | `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv)                                           |
 | `data/accents.txt`                | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt)                                 |
 
@@ -65,10 +65,11 @@ python -m unidic download         # downloads full UniDic (~750 MB); skip if run
 ```bash
 source venv/bin/activate
 
-# Full run (all levels, French only)
+# Full run (all levels, English only)
 python scripts/build.py --model gemma4:e4b
 
-# Multiple languages
+# Add extra languages alongside English
+python scripts/build.py --model gemma4:e4b --languages french
 python scripts/build.py --model gemma4:e4b --languages french spanish german
 
 # Subset of levels
@@ -137,8 +138,11 @@ The script checkpoints after each row and can be safely interrupted and resumed.
 ## Add custom words outside the JLPT list
 
 ```bash
-# Write to output/custom_words.csv (created if absent)
+# Write to output/custom_words.csv (English only, created if absent)
 python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
+
+# With extra languages alongside English
+python scripts/add_words.py 猫背 蹴る --model gemma4:e4b --languages french
 
 # Append to an existing CSV
 python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
@@ -149,7 +153,7 @@ python scripts/add_words.py --file my_words.txt --model gemma4:e4b
 # Combine a file with extra words on the command line
 python scripts/add_words.py 納豆 --file my_words.txt --model gemma4:e4b
 
-# With extra languages
+# With extra languages alongside English
 python scripts/add_words.py 猫背 --output output/custom_words.csv --model gemma4:e4b --languages french spanish
 
 # Resume after an interruption
@@ -199,8 +203,10 @@ Then re-run with `--resume` to regenerate just those rows.
 ```html
 {{振り仮名}}
 <img src="{{ピッチアクセント図}}" />
-{{英語訳}} / {{仏語訳}} {{例文振り仮名}} {{英語例文}} / {{仏語例文}}
+{{英語訳}} {{例文振り仮名}} {{英語例文}}
 ```
+
+If you included extra languages, add their columns as needed, e.g. `{{仏語訳}}` and `{{仏語例文}}` for French.
 
 ---
 
