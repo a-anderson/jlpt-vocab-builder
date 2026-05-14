@@ -134,11 +134,35 @@ python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
 # Append to an existing CSV
 python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
 
+# Read words from a file (one word per line)
+python scripts/add_words.py --file my_words.txt --model gemma4:e4b
+
+# Combine a file with extra words on the command line
+python scripts/add_words.py 納豆 --file my_words.txt --model gemma4:e4b
+
 # With extra languages
 python scripts/add_words.py 猫背 --output output/custom_words.csv --model gemma4:e4b --languages french spanish
+
+# Resume after an interruption
+python scripts/add_words.py --file my_words.txt --model gemma4:e4b --resume
 ```
 
-Custom words are written with `レベル = Custom`.
+The script checkpoints after every word, so `--resume` picks up exactly where it left off. To reprocess a specific word, remove it first with `drop_words.py` then re-run.
+
+Word files support bracket notation for furigana hints, blank lines, and `#` comments:
+
+```
+# verbs
+食[た]べる
+飲[の]む
+
+# nouns
+猫背
+```
+
+Bracket notation (`食[た]べる`) is resolved directly without calling Ollama. Words without brackets use the dictionary reading where available, or Ollama as a fallback.
+
+File words are processed first. Duplicates between the file and command-line arguments are silently dropped (the first occurrence wins). Custom words are written with `レベル = Custom`.
 
 ---
 
@@ -183,6 +207,12 @@ pip install -e .
 {{例文振り仮名}}
 {{英語例文}} / {{仏語例文}}
 ```
+
+---
+
+## Adding TTS audio to your Anki deck
+
+To add text-to-speech audio for the vocabulary and example sentences in your deck, see [Anki-TTS-Automation](https://github.com/a-anderson/Anki-TTS-Automation).
 
 ---
 

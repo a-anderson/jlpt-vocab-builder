@@ -220,6 +220,8 @@ python scripts/add_language.py --language german --output output/n4.csv --model 
 # Add custom words outside the JLPT list
 python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
 python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
+python scripts/add_words.py --file my_words.txt --model gemma4:e4b
+python scripts/add_words.py 納豆 --file my_words.txt --model gemma4:e4b  # combined; file words first, deduped
 
 # Generate SVGs (after CSV is complete)
 python scripts/generate_svgs.py

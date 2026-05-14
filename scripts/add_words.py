@@ -91,14 +91,45 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
     print('Run `python scripts/generate_svgs.py` to generate pitch diagrams for new entries.')
 
 
+def _read_words_file(path: Path) -> list[str]:
+    """Read one word per line; skip blank lines and # comments."""
+    with path.open(encoding='utf-8') as f:
+        return [ln for ln in (line.strip() for line in f) if ln and not ln.startswith('#')]
+
+
+def add_words_from_args(
+    cli_words: list[str],
+    file_path: Path | None,
+    output_path: Path,
+    model: str,
+    langs: list[str],
+) -> None:
+    """Merge words from a file and CLI args, deduplicate, then call add_words."""
+    if file_path is not None:
+        if not file_path.exists():
+            sys.exit(f'File not found: {file_path}')
+        words = _read_words_file(file_path) + list(cli_words)
+    else:
+        words = list(cli_words)
+
+    words = list(dict.fromkeys(words))
+
+    if not words:
+        sys.exit('No words provided. Pass words as arguments or use --file.')
+
+    add_words(words, output_path, model, langs)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Add custom words to a vocabulary CSV.')
-    parser.add_argument('words', nargs='+', help='Words to add')
+    parser.add_argument('words', nargs='*', default=[], help='Words to add')
+    parser.add_argument('--file', default=None, help='Text file with one word per line; lines starting with # are ignored')
     parser.add_argument('--output', default=str(DEFAULT_OUTPUT), help='CSV file (default: output/custom_words.csv)')
     parser.add_argument('--model', required=True, help='Ollama model name')
     parser.add_argument('--languages', nargs='+', default=['french'], choices=list(LANGUAGES.keys()))
     args = parser.parse_args()
-    add_words(args.words, Path(args.output), args.model, args.languages)
+    file_path = Path(args.file) if args.file else None
+    add_words_from_args(args.words, file_path, Path(args.output), args.model, args.languages)
 
 
 if __name__ == '__main__':

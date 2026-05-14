@@ -190,6 +190,78 @@ class TestAddWords:
             rows = list(csv.DictReader(f))
         assert rows[0]['振り仮名'] == ''
 
+    def test_words_from_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        words_file = tmp_path / 'words.txt'
+        words_file.write_text('猫背\n蹴る\n', encoding='utf-8')
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words_from_args
+            add_words_from_args([], words_file, output, 'gemma4:e4b', ['french'])
+        with open(output, newline='', encoding='utf-8') as f:
+            words = [r['単語'] for r in csv.DictReader(f)]
+        assert words == ['猫背', '蹴る']
+
+    def test_words_from_file_and_cli(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        words_file = tmp_path / 'words.txt'
+        words_file.write_text('猫背\n蹴る\n', encoding='utf-8')
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words_from_args
+            # 猫背 appears in both file and CLI; should appear only once
+            add_words_from_args(['納豆', '猫背'], words_file, output, 'gemma4:e4b', ['french'])
+        with open(output, newline='', encoding='utf-8') as f:
+            words = [r['単語'] for r in csv.DictReader(f)]
+        assert words == ['猫背', '蹴る', '納豆']
+
+    def test_file_blank_lines_and_comments_skipped(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        words_file = tmp_path / 'words.txt'
+        words_file.write_text('猫背\n\n# this is a comment\n蹴る\n', encoding='utf-8')
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words_from_args
+            add_words_from_args([], words_file, output, 'gemma4:e4b', ['french'])
+        with open(output, newline='', encoding='utf-8') as f:
+            words = [r['単語'] for r in csv.DictReader(f)]
+        assert words == ['猫背', '蹴る']
+
+    def test_no_words_raises_error(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        from scripts.add_words import add_words_from_args
+        with pytest.raises(SystemExit):
+            add_words_from_args([], None, output, 'gemma4:e4b', ['french'])
+
+    def test_file_not_found_raises_error(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        from scripts.add_words import add_words_from_args
+        with pytest.raises(SystemExit):
+            add_words_from_args([], tmp_path / 'nonexistent.txt', output, 'gemma4:e4b', ['french'])
+
     def test_uses_default_output_when_no_output_given(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with (
