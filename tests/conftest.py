@@ -124,11 +124,15 @@ def french_dir():
 
 @pytest.fixture(scope='session')
 def jitendex_index(jitendex_dir):
+    if not jitendex_dir.exists():
+        pytest.skip('jitendex data not downloaded — run the pipeline first')
     from jlpt_vocab.dictionary import build_jitendex_index
     return build_jitendex_index(jitendex_dir)
 
 
 @pytest.fixture(scope='session')
 def french_index(french_dir):
+    if not french_dir.exists():
+        pytest.skip('JMdict French data not downloaded — run the pipeline first')
     from jlpt_vocab.dictionary import build_jmdict_index
     return build_jmdict_index(french_dir)

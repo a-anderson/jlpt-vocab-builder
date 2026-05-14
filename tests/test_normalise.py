@@ -22,7 +22,7 @@ class TestNormaliseWord:
     def test_suffix_suru(self):
         result = normalise_word('勉強（する）')
         assert result['lookup_forms'] == ['勉強']
-        assert result['inferred_pos'] == 'サ変動詞'
+        assert result['inferred_pos'] == 'サ変動詞（する）'
 
     def test_suffix_no(self):
         result = normalise_word('主要（の）')

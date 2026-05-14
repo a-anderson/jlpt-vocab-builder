@@ -1,7 +1,17 @@
 """Tests for pitch accent utilities."""
 
+from pathlib import Path
+
+import pytest
+
 from jlpt_vocab.pitch_accent import split_mora, svg_filename, plain_kana, get_pitch_accent, get_pitch_columns, _decode_nhk_ac
 from scripts.generate_svgs import pitch_sequence, particle_level
+
+_REPO_ROOT = Path(__file__).parent.parent
+_PITCH_DATA_AVAILABLE = (
+    (_REPO_ROOT / 'data' / 'accents.txt').exists()
+    and (_REPO_ROOT / 'data' / 'nhk_data' / 'ACCDB_unicode.csv').exists()
+)
 
 
 class TestSplitMora:
@@ -136,6 +146,7 @@ class TestDecodeNhkAc:
         assert _decode_nhk_ac('000', 3) == 0
 
 
+@pytest.mark.skipif(not _PITCH_DATA_AVAILABLE, reason='pitch accent data not downloaded — run the pipeline first')
 class TestGetPitchAccent:
     """Integration tests against real local Kanjium and NHK data files."""
 
@@ -156,7 +167,10 @@ class TestGetPitchAccent:
         assert result['source'] == 'kanjium'
 
     def test_nhk_fallback(self):
-        # 愛知 is not in Kanjium; NHK gives pattern 1 (atamadaka)
+        # 愛知 (Aichi prefecture) was chosen because it is a proper noun absent from
+        # Kanjium (which covers common vocabulary) but present in NHK's broadcaster
+        # pronunciation data. If this assertion ever fails with source='kanjium',
+        # Kanjium has been updated and a new NHK-only word should be selected.
         get_pitch_accent.cache_clear()
         result = get_pitch_accent('愛知', 'あいち')
         assert result['source'] == 'nhk'
@@ -174,6 +188,7 @@ class TestGetPitchAccent:
         assert result['mora_count'] == len(split_mora('たべる'))
 
 
+@pytest.mark.skipif(not _PITCH_DATA_AVAILABLE, reason='pitch accent data not downloaded — run the pipeline first')
 class TestGetPitchColumns:
     def test_returns_both_keys(self):
         cols = get_pitch_columns('食べる', 'たべる')

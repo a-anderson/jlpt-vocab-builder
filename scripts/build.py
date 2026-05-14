@@ -99,13 +99,10 @@ def main() -> None:
             if args.resume and word in done:
                 continue
 
-            result = process_word(
+            content, lookup_forms, _ = process_word(
                 word, args.model, jitendex, lang_indexes, args.languages,
                 en_gloss_fallback=entry.get('英語訳_raw', ''),
             )
-            lookup_forms = result.pop('lookup_forms')
-            result.pop('読み')
-
             振り仮名 = bracket_to_ruby(entry['振り仮名_raw'])
             reading = plain_kana(entry['振り仮名_raw'])
             pitch_cols = get_pitch_columns(lookup_forms[0], reading)
@@ -115,7 +112,7 @@ def main() -> None:
                 '振り仮名': 振り仮名,
                 'ピッチアクセント': pitch_cols['ピッチアクセント'],
                 'ピッチアクセント図': pitch_cols['ピッチアクセント図'],
-                **result,
+                **content,
                 'レベル': entry['レベル'],
             }.items()})
             csvfile.flush()
