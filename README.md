@@ -218,7 +218,7 @@ To add text-to-speech audio for the vocabulary and example sentences in your dec
 
 ## Project status
 
-This is a personal project and is **not accepting external contributions or pull requests.** Issues and bug reports are also not monitored. Feel free to fork and adapt the code for your own use under the terms of the MIT licence.
+This is a personal project and is **not accepting external contributions or pull requests.** Issues and bug reports are also not monitored. Feel free to fork and adapt the code for your own use under the terms of the [MIT licence](LICENSE).
 
 ---
 
