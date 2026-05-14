@@ -24,20 +24,24 @@ from jlpt_vocab.pipeline import (
 )
 
 
-def main() -> None:
+def _make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Build JLPT vocabulary CSV')
     parser.add_argument('--model', required=True, help='Ollama model name, e.g. gemma4:e4b')
     parser.add_argument('--levels', nargs='+', default=LEVELS, choices=LEVELS)
     parser.add_argument('--resume', action='store_true', help='Skip already-processed words')
     parser.add_argument('--output', default=str(OUTPUT_CSV))
     parser.add_argument(
-        '--languages', nargs='+', default=['french'],
+        '--languages', nargs='*', default=[],
         choices=list(LANGUAGES.keys()),
-        help='Languages to include (default: french)',
+        help='Extra languages to include alongside English (default: none — English only)',
     )
     parser.add_argument('--repair', action='store_true',
                         help='Find rows with empty Ollama-generated fields and reprocess them')
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = _make_parser().parse_args()
 
     output_path = Path(args.output)
     checkpoint_path = output_path.with_name(output_path.stem + '_checkpoint.json')
@@ -47,6 +51,8 @@ def main() -> None:
         # Infer languages from the CSV header rather than requiring --languages.
         # This prevents silently checking the wrong columns if the user forgets to
         # pass --languages when their CSV has multiple languages.
+        # `or` here: [] is falsy, so an English-only CSV ("detected=[]") falls through to
+        # args.languages (also [] by default), which is correct — no language columns to repair.
         effective_langs = detect_csv_languages(output_path) or args.languages
         repair_cols = ['例文振り仮名', '日本語ターゲット', '例文'] + [
             f'{LANGUAGES[l][0]}語例文' for l in effective_langs

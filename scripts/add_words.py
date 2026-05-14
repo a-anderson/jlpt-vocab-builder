@@ -120,14 +120,20 @@ def add_words_from_args(
     add_words(words, output_path, model, langs)
 
 
-def main() -> None:
+def _make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Add custom words to a vocabulary CSV.')
     parser.add_argument('words', nargs='*', default=[], help='Words to add')
     parser.add_argument('--file', default=None, help='Text file with one word per line; lines starting with # are ignored')
     parser.add_argument('--output', default=str(DEFAULT_OUTPUT), help='CSV file (default: output/custom_words.csv)')
     parser.add_argument('--model', required=True, help='Ollama model name')
-    parser.add_argument('--languages', nargs='+', default=['french'], choices=list(LANGUAGES.keys()))
-    args = parser.parse_args()
+    parser.add_argument('--languages', nargs='*', default=[],
+                        choices=list(LANGUAGES.keys()),
+                        help='Extra languages to include alongside English (default: none — English only)')
+    return parser
+
+
+def main() -> None:
+    args = _make_parser().parse_args()
     file_path = Path(args.file) if args.file else None
     add_words_from_args(args.words, file_path, Path(args.output), args.model, args.languages)
 

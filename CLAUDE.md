@@ -199,10 +199,11 @@ This prevents e.g. `夫` matching inside `大丈夫`.
 ```bash
 source venv/bin/activate
 
-# Full run (French only, default)
+# Full run (English only, default)
 python scripts/build.py --model gemma4:e4b
 
-# Multiple languages
+# Add extra languages alongside English
+python scripts/build.py --model gemma4:e4b --languages french
 python scripts/build.py --model gemma4:e4b --languages french spanish german
 
 # Subset of levels

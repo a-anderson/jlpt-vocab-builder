@@ -33,6 +33,18 @@ def _mock_ollama(*args, **kwargs):
 _OLLAMA_PATCH = 'jlpt_vocab.pipeline.ollama_generate'
 
 
+class TestAddWordsArgparse:
+    def test_languages_defaults_to_english_only(self):
+        from scripts.add_words import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b', '猫背'])
+        assert args.languages == []
+
+    def test_languages_accepts_explicit_value(self):
+        from scripts.add_words import _make_parser
+        args = _make_parser().parse_args(['猫背', '--model', 'gemma4:e4b', '--languages', 'french'])
+        assert args.languages == ['french']
+
+
 class TestAddWords:
     def test_writes_custom_level(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -247,6 +259,26 @@ class TestAddWords:
         with open(output, newline='', encoding='utf-8') as f:
             words = [r['単語'] for r in csv.DictReader(f)]
         assert words == ['猫背', '蹴る']
+
+    def test_english_only_no_lang_columns(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words
+            add_words(['食べる'], output, 'gemma4:e4b', [])
+        with open(output, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            assert reader.fieldnames == make_csv_columns([])
+            rows = list(reader)
+        assert '仏語訳' not in rows[0]
+        assert '仏語例文' not in rows[0]
 
     def test_no_words_raises_error(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

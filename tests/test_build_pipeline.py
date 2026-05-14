@@ -126,6 +126,17 @@ class TestMakeCsvColumns:
         assert all(gi < cols.index('例文') for gi in gloss_indices)
         assert all(ei > cols.index('英語例文') for ei in example_indices)
 
+    def test_english_only(self):
+        cols = make_csv_columns([])
+        assert cols == [
+            '単語', '振り仮名', '品詞', 'ピッチアクセント', 'ピッチアクセント図',
+            '英語訳', '例文', '例文振り仮名', '英語例文',
+            '日本語ターゲット', 'レベル',
+        ]
+        assert len(cols) == 11
+        assert not any('語訳' in c and c != '英語訳' for c in cols)
+        assert not any('語例文' in c and c != '英語例文' for c in cols)
+
 
 class TestOllamaGenerateFurigana:
     def test_returns_ruby_html(self):
@@ -189,6 +200,23 @@ class TestFindRepairCandidates:
         assert find_repair_candidates(path, ['例文振り仮名']) == set()
 
 
+class TestBuildArgparse:
+    def test_languages_defaults_to_english_only(self):
+        from scripts.build import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b'])
+        assert args.languages == []
+
+    def test_languages_accepts_single_language(self):
+        from scripts.build import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b', '--languages', 'french'])
+        assert args.languages == ['french']
+
+    def test_languages_accepts_multiple(self):
+        from scripts.build import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b', '--languages', 'french', 'spanish'])
+        assert args.languages == ['french', 'spanish']
+
+
 class TestDetectCsvLanguages:
     def test_single_language(self, tmp_path):
         path = tmp_path / 'test.csv'
@@ -205,6 +233,11 @@ class TestDetectCsvLanguages:
 
     def test_missing_file_returns_empty(self, tmp_path):
         assert detect_csv_languages(tmp_path / 'missing.csv') == []
+
+    def test_english_only_csv(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        _write_csv(path, [], make_csv_columns([]))
+        assert detect_csv_languages(path) == []
 
 
 class TestParseJson:
