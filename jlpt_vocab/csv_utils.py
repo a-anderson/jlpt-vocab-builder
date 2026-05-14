@@ -1,6 +1,5 @@
-"""Remove words from a CSV output file and its paired checkpoint."""
+"""Checkpoint and CSV row-removal utilities shared across pipeline scripts."""
 
-import argparse
 import csv
 import json
 from pathlib import Path
@@ -55,32 +54,3 @@ def load_checkpoint(checkpoint_path: Path) -> set[str]:
 def save_checkpoint(done: set[str], checkpoint_path: Path) -> None:
     with open(checkpoint_path, 'w') as f:
         json.dump(list(done), f, ensure_ascii=False)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='Drop words from a CSV output file and its paired checkpoint.',
-        epilog='Example: python drop_words.py 下りる 招致 --output n4.csv',
-    )
-    parser.add_argument('words', nargs='+', help='Words to remove')
-    parser.add_argument('--output', required=True, help='CSV file, e.g. n4.csv')
-    args = parser.parse_args()
-
-    words = set(args.words)
-    csv_path = Path(args.output)
-    checkpoint_path = csv_path.with_name(csv_path.stem + '_checkpoint.json')
-
-    csv_found = drop_from_csv(csv_path, words)
-    ckpt_found = drop_from_checkpoint(checkpoint_path, words)
-
-    for word in sorted(words):
-        in_csv = word in csv_found
-        in_ckpt = word in ckpt_found
-        if in_csv or in_ckpt:
-            print(f'  dropped {word} (csv={in_csv}, checkpoint={in_ckpt})')
-        else:
-            print(f'  WARNING: {word!r} not found in either file')
-
-
-if __name__ == '__main__':
-    main()

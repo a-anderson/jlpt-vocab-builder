@@ -4,12 +4,8 @@ Unit tests use the sample_example_node fixture from conftest so they are
 fast and offline. Integration tests read the local data files.
 """
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
-from dictionary import _codes_to_hinshi, _find_pos_codes, _find_glosses, _ruby_html
+from jlpt_vocab.dictionary import _codes_to_hinshi, _find_pos_codes, _find_glosses, _ruby_html
 
 
 # ---------------------------------------------------------------------------
@@ -132,19 +128,19 @@ class TestRubyHtml:
 
 class TestFindExample:
     def test_extracts_plain_japanese(self, sample_example_node):
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         result = _find_example(sample_example_node)
         assert result is not None
         assert result[0] == 'もっと果物を食べるべきです。'
 
     def test_extracts_english(self, sample_example_node):
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         result = _find_example(sample_example_node)
         assert result is not None
         assert result[1] == 'You should eat more fruit.'
 
     def test_extracts_furigana_html(self, sample_example_node):
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         result = _find_example(sample_example_node)
         assert result is not None
         furigana = result[2]
@@ -155,19 +151,19 @@ class TestFindExample:
     def test_furigana_plain_text_matches_japanese(self, sample_example_node):
         """Stripping ruby tags from the furigana should give the plain sentence."""
         import re
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         result = _find_example(sample_example_node)
         assert result is not None
         stripped = re.sub(r'<ruby>|</ruby>|<rt>[^<]*</rt>', '', result[2])
         assert stripped == result[0]
 
     def test_returns_none_for_missing_example(self):
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         assert _find_example({'tag': 'div', 'content': []}) is None
         assert _find_example([]) is None
 
     def test_plain_text_has_no_ruby_tags(self, sample_example_node):
-        from dictionary import _find_example
+        from jlpt_vocab.dictionary import _find_example
         result = _find_example(sample_example_node)
         assert result is not None
         assert '<ruby>' not in result[0]
@@ -236,11 +232,11 @@ class TestJitendexIndexReading:
 
 class TestBuildJmdictIndex:
     def test_name_importable(self):
-        from dictionary import build_jmdict_index  # confirms rename compiles
+        from jlpt_vocab.dictionary import build_jmdict_index  # confirms rename compiles
 
     def test_returns_gloss_string(self, tmp_path):
         import json
-        from dictionary import build_jmdict_index
+        from jlpt_vocab.dictionary import build_jmdict_index
         bank = [[
             '食べる', 'たべる', 'v1', '', 0,
             ['to eat', 'to consume'], 1, ''

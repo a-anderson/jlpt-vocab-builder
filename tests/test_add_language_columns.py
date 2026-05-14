@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from build_jlpt_csv import make_csv_columns
+from jlpt_vocab.pipeline import make_csv_columns, LANGUAGES
 
 
 def _write_csv(path, rows, columns):
@@ -39,7 +39,6 @@ def _mock_ollama(word, model, en_gloss, pos, need_sentence, **kwargs):
     langs = kwargs.get('langs', [])
     result = {'例文振り仮名': '', '日本語ターゲット': ''}
     for lang in langs:
-        from build_jlpt_csv import LANGUAGES
         abbrev = LANGUAGES[lang][0]
         result[f'{abbrev}語例文'] = f'(mock {lang} translation)'
         result[f'{abbrev}語訳'] = f'(mock {lang} gloss)'
@@ -50,11 +49,11 @@ class TestAddLanguageColumns:
     def test_adds_correct_column_names(self, existing_csv, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         with open(existing_csv, newline='', encoding='utf-8') as f:
             fieldnames = csv.DictReader(f).fieldnames
@@ -65,11 +64,11 @@ class TestAddLanguageColumns:
         monkeypatch.chdir(tmp_path)
         original_cols = make_csv_columns(['french'])
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         with open(existing_csv, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -87,22 +86,22 @@ class TestAddLanguageColumns:
         path = tmp_path / 'test.csv'
         _write_csv(path, rows, columns)
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={'食べる': 'manger', '飲む': 'boire'}),
-            patch('add_language_columns.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={'食べる': 'manger', '飲む': 'boire'}),
+            patch('scripts.add_language.ollama_generate') as mock_gen,
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(path, 'spanish', 'gemma4:e4b')
         mock_gen.assert_not_called()
 
     def test_gloss_lookup_miss_calls_ollama(self, existing_csv, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate', side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama) as mock_gen,
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         assert mock_gen.call_count == 2  # once per word
 
@@ -117,11 +116,11 @@ class TestAddLanguageColumns:
             {c: '' for c in cols} | {'単語': '食べる', '西語訳': 'manger', '西語例文': 'ok'},
         ], cols)
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate', side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama) as mock_gen,
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         # 食べる was checkpointed — Ollama should only be called for 飲む
         called_words = [c.kwargs.get('word') or c.args[0] for c in mock_gen.call_args_list]
@@ -133,11 +132,11 @@ class TestAddLanguageColumns:
         checkpoint_path.write_text(json.dumps(['食べる', '飲む']), encoding='utf-8')
         mtime_before = existing_csv.stat().st_mtime
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate') as mock_gen,
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         mock_gen.assert_not_called()
         assert not checkpoint_path.exists()
@@ -154,11 +153,11 @@ class TestAddLanguageColumns:
         _write_csv(existing_csv, rows, cols)
         mtime_before = existing_csv.stat().st_mtime
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate') as mock_gen,
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
         mock_gen.assert_not_called()
         assert existing_csv.stat().st_mtime == mtime_before
@@ -173,12 +172,12 @@ class TestAddLanguageColumns:
             return original_replace(self, target)
 
         with (
-            patch('add_language_columns.ensure_jmdict'),
-            patch('add_language_columns.build_jmdict_index', return_value={}),
-            patch('add_language_columns.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ensure_jmdict'),
+            patch('scripts.add_language.build_jmdict_index', return_value={}),
+            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
             patch.object(Path, 'replace', capture_replace),
         ):
-            from add_language_columns import add_language_columns
+            from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
 
         assert any(str(p).endswith('.tmp') for p in replaced_paths)

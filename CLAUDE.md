@@ -2,9 +2,9 @@
 
 ## Project purpose
 
-Build a JLPT N4–N1 vocabulary CSV (~8,000 words) for Anki import. Full spec: `SPEC.md`.
+Build a JLPT N4–N1 vocabulary CSV (~8,000 words) for Anki import.
 
-Output: `jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch accent, English/French glosses, example sentence, sentence furigana, translations, surface form, JLPT level.
+Output: `output/jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch accent, English/French glosses, example sentence, sentence furigana, translations, surface form, JLPT level.
 
 ---
 
@@ -25,15 +25,25 @@ Output: `jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch accent, 
 ## File structure
 
 ```
-build_jlpt_csv.py           — main pipeline (entry point)
-dictionary.py               — Jitendex + JMdict index builders
-pitch_accent.py             — Kanjium + NHK + OJAD pitch accent lookup
-generate_pitch_svgs.py      — SVG diagram generator (run after CSV is complete)
-download.py                 — auto-download data sources on first run
-add_language_columns.py     — retrofit a finished CSV with a new language
-add_words.py                — append arbitrary words to a CSV
-drop_words.py               — remove words from CSV and checkpoint
+jlpt_vocab/                 — importable Python package (library code)
+  __init__.py
+  pipeline.py               — core pipeline logic (constants, Ollama, repair helpers)
+  dictionary.py             — Jitendex + JMdict index builders
+  pitch_accent.py           — Kanjium + NHK + OJAD pitch accent lookup
+  download.py               — auto-download data sources on first run
+  furigana.py               — bracket-to-ruby conversion and normalisation
+  normalise.py              — word normalisation for chadmuro entries
+  csv_utils.py              — checkpoint + CSV row-removal utilities
+
+scripts/                    — CLI entry points (run with python scripts/<name>.py)
+  build.py                  — main pipeline
+  generate_svgs.py          — SVG diagram generator (run after CSV is complete)
+  add_language.py           — retrofit a finished CSV with a new language
+  add_words.py              — append arbitrary words to a CSV
+  drop_words.py             — remove words from CSV and checkpoint
+
 tests/
+  test_build_pipeline.py
   test_dictionary.py
   test_pitch_accent.py
   test_furigana.py
@@ -41,8 +51,9 @@ tests/
   test_download.py
   test_add_language_columns.py
   test_add_words.py
+  test_drop_words.py
 
-data/
+data/                       — gitignored; auto-downloaded on first run
   jitendex-yomitan/         — Jitendex (English glosses + POS + example sentences)
     term_bank_*.json        — 216 files; yomitan term bank format
   JMdict_french/            — JMdict French (French glosses)
@@ -51,9 +62,12 @@ data/
   nhk_data/
     ACCDB_unicode.csv       — NHK pitch accent data
   accents.txt               — Kanjium pitch accent data
-jlpt_vocab.csv              — output
-checkpoint.json             — resume state
-pitch_svgs/                 — generated SVG files
+
+output/                     — gitignored; all generated files land here
+  jlpt_vocab.csv            — concatenated output
+  n4.csv, n3.csv, ...       — per-level outputs
+  *_checkpoint.json         — resume state
+  pitch_svgs/               — generated SVG files
 ```
 
 ---
@@ -176,7 +190,7 @@ This prevents e.g. `夫` matching inside `大丈夫`.
 - Strip markdown fences before parsing JSON responses
 - Log failures and continue (words with empty fields can be retried with `--resume`)
 - Always run `normalise_furigana()` on `例文振り仮名` output regardless of how clean it looks
-- Two prompt modes: full generation (no Jitendex sentence) and partial (Jitendex sentence found, need FR + furigana) — see `SPEC.md` for exact prompt text
+- Two prompt modes: full generation (no Jitendex sentence) and partial (Jitendex sentence found, need translations + furigana) — see `jlpt_vocab/pipeline.py:ollama_generate` for exact prompt text
 
 ---
 
@@ -186,29 +200,29 @@ This prevents e.g. `夫` matching inside `大丈夫`.
 source venv/bin/activate
 
 # Full run (French only, default)
-python build_jlpt_csv.py --model gemma4:e4b
+python scripts/build.py --model gemma4:e4b
 
 # Multiple languages
-python build_jlpt_csv.py --model gemma4:e4b --languages french spanish german
+python scripts/build.py --model gemma4:e4b --languages french spanish german
 
 # Subset of levels
-python build_jlpt_csv.py --model gemma4:e4b --levels n4 n3
+python scripts/build.py --model gemma4:e4b --levels n4 n3
 
 # Resume after crash
-python build_jlpt_csv.py --model gemma4:e4b --resume
+python scripts/build.py --model gemma4:e4b --resume
 
 # Repair rows with empty Ollama-generated fields
-python build_jlpt_csv.py --model gemma4:e4b --output n4.csv --repair
+python scripts/build.py --model gemma4:e4b --output output/n4.csv --repair
 
 # Add a language to a finished CSV
-python add_language_columns.py --language german --output n4.csv --model gemma4:e4b
+python scripts/add_language.py --language german --output output/n4.csv --model gemma4:e4b
 
 # Add custom words outside the JLPT list
-python add_words.py 猫背 蹴る --model gemma4:e4b
-python add_words.py 猫背 --output n4.csv --model gemma4:e4b
+python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
+python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
 
 # Generate SVGs (after CSV is complete)
-python generate_pitch_svgs.py
+python scripts/generate_svgs.py
 ```
 
 ### Parallel runs (one level per terminal)
@@ -216,17 +230,17 @@ python generate_pitch_svgs.py
 Each instance needs its own `--output` flag so it gets an isolated checkpoint file:
 
 ```bash
-python build_jlpt_csv.py --model gemma4:e4b --levels n4 --output n4.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n3 --output n3.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n2 --output n2.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n1 --output n1.csv
+python scripts/build.py --model gemma4:e4b --levels n4 --output output/n4.csv
+python scripts/build.py --model gemma4:e4b --levels n3 --output output/n3.csv
+python scripts/build.py --model gemma4:e4b --levels n2 --output output/n2.csv
+python scripts/build.py --model gemma4:e4b --levels n1 --output output/n1.csv
 ```
 
 After all finish, concatenate (use a loop — BSD tail on macOS adds separators with multiple files):
 
 ```bash
-head -1 n4.csv > jlpt_vocab.csv
-for f in n4.csv n3.csv n2.csv n1.csv; do tail -n +2 "$f"; done >> jlpt_vocab.csv
+head -1 output/n4.csv > output/jlpt_vocab.csv
+for f in output/n4.csv output/n3.csv output/n2.csv output/n1.csv; do tail -n +2 "$f"; done >> output/jlpt_vocab.csv
 ```
 
 ## Running tests

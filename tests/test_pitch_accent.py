@@ -1,11 +1,7 @@
 """Tests for pitch accent utilities."""
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from pitch_accent import split_mora, svg_filename, plain_kana, get_pitch_accent, get_pitch_columns, _decode_nhk_ac
-from generate_pitch_svgs import pitch_sequence, particle_level
+from jlpt_vocab.pitch_accent import split_mora, svg_filename, plain_kana, get_pitch_accent, get_pitch_columns, _decode_nhk_ac
+from scripts.generate_svgs import pitch_sequence, particle_level
 
 
 class TestSplitMora:

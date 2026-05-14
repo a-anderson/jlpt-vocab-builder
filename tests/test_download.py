@@ -36,14 +36,14 @@ class TestEnsureJmdict:
         monkeypatch.chdir(tmp_path)
         (tmp_path / 'data' / 'JMdict_french').mkdir(parents=True)
         with patch('requests.get') as mock_get:
-            from download import ensure_jmdict
+            from jlpt_vocab.download import ensure_jmdict
             ensure_jmdict('french')
         mock_get.assert_not_called()
 
     def test_downloads_extracts_and_deletes_zip(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with patch('requests.get', side_effect=_mock_get_zip):
-            from download import ensure_jmdict
+            from jlpt_vocab.download import ensure_jmdict
             ensure_jmdict('spanish')
         assert (tmp_path / 'data' / 'JMdict_spanish').exists()
         assert not list((tmp_path / 'data' / 'JMdict_spanish').glob('*.zip'))
@@ -55,7 +55,7 @@ class TestEnsureKanjium:
         (tmp_path / 'data').mkdir(parents=True)
         (tmp_path / 'data' / 'accents.txt').write_text('x', encoding='utf-8')
         with patch('requests.get') as mock_get:
-            from download import ensure_kanjium
+            from jlpt_vocab.download import ensure_kanjium
             ensure_kanjium()
         mock_get.assert_not_called()
 
@@ -63,7 +63,7 @@ class TestEnsureKanjium:
         monkeypatch.chdir(tmp_path)
         content = b'exp\treading\t0\n'
         with patch('requests.get', side_effect=_mock_get_bytes(content)):
-            from download import ensure_kanjium
+            from jlpt_vocab.download import ensure_kanjium
             ensure_kanjium()
         dest = tmp_path / 'data' / 'accents.txt'
         assert dest.exists()
@@ -74,12 +74,12 @@ class TestEnsureAll:
     def test_calls_each_component(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with (
-            patch('download.ensure_jitendex') as mock_ji,
-            patch('download.ensure_jmdict') as mock_jm,
-            patch('download.ensure_nhk') as mock_nhk,
-            patch('download.ensure_kanjium') as mock_ka,
+            patch('jlpt_vocab.download.ensure_jitendex') as mock_ji,
+            patch('jlpt_vocab.download.ensure_jmdict') as mock_jm,
+            patch('jlpt_vocab.download.ensure_nhk') as mock_nhk,
+            patch('jlpt_vocab.download.ensure_kanjium') as mock_ka,
         ):
-            from download import ensure_all
+            from jlpt_vocab.download import ensure_all
             ensure_all(['french', 'spanish'])
         mock_ji.assert_called_once()
         assert mock_jm.call_count == 2

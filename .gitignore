@@ -2,16 +2,10 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+*.egg-info/
 
 # downloaded data sources
 data/
 
-# output files
-jlpt_vocab.csv
-n4.csv
-n3.csv
-n2.csv
-n1.csv
-*_checkpoint.json
-checkpoint.json
-pitch_svgs/
+# generated output (CSVs, checkpoints, SVGs)
+output/

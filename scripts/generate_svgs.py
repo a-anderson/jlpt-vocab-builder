@@ -1,10 +1,10 @@
 """
-generate_pitch_svgs.py
-======================
-Reads the completed jlpt_vocab.csv and generates one SVG file per unique
+generate_svgs.py
+================
+Reads a completed vocabulary CSV and generates one SVG file per unique
 (mora_count, pattern) combination found in it.
 
-Output directory: ./pitch_svgs/
+Output directory: output/pitch_svgs/
 Filenames:        {mora_count}_{pattern}.svg   e.g. 4_2.svg
 Special case:     unknown.svg  (no pattern found — empty placeholder)
 
@@ -24,14 +24,14 @@ Particle pitch rule:
   Odaka (pattern == mora_count) → particle is LOW  (drops ON the particle)
 
 Usage:
-  python generate_pitch_svgs.py
-  python generate_pitch_svgs.py --input my_vocab.csv --out_dir my_svgs/
+  python scripts/generate_svgs.py
+  python scripts/generate_svgs.py --input output/my_vocab.csv --out_dir output/my_svgs/
 
 For Anki:
   Copy all SVGs into your Anki media folder:
     ~/.local/share/Anki2/<profile>/collection.media/   (Linux)
     ~/Library/Application Support/Anki2/<profile>/collection.media/  (macOS)
-  Reference in card template as: <img src="{{ピッチアクセント図}}">
+  Reference in card template as: <img src="{{{{ピッチアクセント図}}}}">
 """
 
 import argparse
@@ -211,17 +211,17 @@ def collect_pairs(csv_path: Path) -> tuple[set[tuple[int, int]], bool]:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate pitch accent SVG files")
-    parser.add_argument("--input", default="jlpt_vocab.csv", help="Input CSV path")
-    parser.add_argument("--out_dir", default="pitch_svgs", help="Output directory for SVGs")
+    parser.add_argument("--input", default="output/jlpt_vocab.csv", help="Input CSV path")
+    parser.add_argument("--out_dir", default="output/pitch_svgs", help="Output directory for SVGs")
     args = parser.parse_args()
 
     csv_path = Path(args.input)
     out_dir = Path(args.out_dir)
-    out_dir.mkdir(exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     if not csv_path.exists():
         print(f"CSV not found: {csv_path}")
-        print("Run build_jlpt_csv.py first, then run this script.")
+        print("Run scripts/build.py first, then run this script.")
         return
 
     print(f"Reading {csv_path}...")

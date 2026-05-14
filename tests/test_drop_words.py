@@ -5,7 +5,7 @@ import json
 import pytest
 from pathlib import Path
 
-from drop_words import drop_from_csv, drop_from_checkpoint, load_checkpoint, save_checkpoint
+from jlpt_vocab.csv_utils import drop_from_csv, drop_from_checkpoint, load_checkpoint, save_checkpoint
 
 _COLS = ['単語', '振り仮名', '品詞', 'ピッチアクセント', 'ピッチアクセント図',
          '英語訳', '仏語訳', '例文', '例文振り仮名', '英語例文', '仏語例文',

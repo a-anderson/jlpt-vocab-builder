@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from build_jlpt_csv import make_csv_columns, LANGUAGES
+from jlpt_vocab.pipeline import make_csv_columns, LANGUAGES
 
 
 def _write_csv(path, rows, columns):
@@ -30,19 +30,22 @@ def _mock_ollama(*args, **kwargs):
     return result
 
 
+_OLLAMA_PATCH = 'jlpt_vocab.pipeline.ollama_generate'
+
+
 class TestAddWords:
     def test_writes_custom_level(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         output = tmp_path / 'out.csv'
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value=''),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -52,14 +55,14 @@ class TestAddWords:
         monkeypatch.chdir(tmp_path)
         output = tmp_path / 'out.csv'
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value=''),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -71,14 +74,14 @@ class TestAddWords:
         cols = make_csv_columns(['french'])
         _write_csv(output, [{c: '' for c in cols} | {'単語': '走る', 'レベル': 'N4'}], cols)
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value=''),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             content = f.read()
@@ -94,14 +97,14 @@ class TestAddWords:
         cols = make_csv_columns(['french'])
         _write_csv(output, [], cols)
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             with pytest.raises(SystemExit) as exc_info:
                 add_words(['食べる'], output, 'gemma4:e4b', ['french', 'spanish'])
-        assert 'add_language_columns.py' in str(exc_info.value)
+        assert 'scripts/add_language.py' in str(exc_info.value)
 
     def test_skips_word_in_checkpoint(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -109,14 +112,14 @@ class TestAddWords:
         checkpoint = output.with_name('out_checkpoint.json')
         checkpoint.write_text(json.dumps(['食べる']), encoding='utf-8')
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama) as mock_gen,
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value=''),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         mock_gen.assert_not_called()
 
@@ -125,13 +128,13 @@ class TestAddWords:
         output = tmp_path / 'out.csv'
         jitendex = {'食[た]べる': {'品詞': '', '英語訳': '', '読み': '', '例文': '', '英語例文': '', '例文振り仮名': ''}}
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value=jitendex),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食[た]べる'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -142,13 +145,13 @@ class TestAddWords:
         output = tmp_path / 'out.csv'
         jitendex = {'猫背': {'品詞': '名詞', '英語訳': 'stoop', '読み': 'ねこぜ', '例文': '', '英語例文': '', '例文振り仮名': ''}}
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value=jitendex),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['猫背'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -159,14 +162,14 @@ class TestAddWords:
         output = tmp_path / 'out.csv'
         jitendex = {'食べる': {'品詞': '一段動詞', '英語訳': 'to eat', '読み': 'たべる', '例文': '', '英語例文': '', '例文振り仮名': ''}}
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value=jitendex),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value='<ruby>食<rt>た</rt></ruby>べる') as mock_furi,
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>食<rt>た</rt></ruby>べる') as mock_furi,
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         mock_furi.assert_called_once()
 
@@ -175,13 +178,13 @@ class TestAddWords:
         output = tmp_path / 'out.csv'
         jitendex = {'猫背': {'品詞': '名詞', '英語訳': 'stoop', '読み': '', '例文': '', '英語例文': '', '例文振り仮名': ''}}
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value=jitendex),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
         ):
-            from add_words import add_words
+            from scripts.add_words import add_words
             add_words(['猫背'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -190,13 +193,13 @@ class TestAddWords:
     def test_uses_default_output_when_no_output_given(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         with (
-            patch('add_words.ensure_all'),
-            patch('add_words.build_jitendex_index', return_value={}),
-            patch('add_words.build_jmdict_index', return_value={}),
-            patch('add_words.ollama_generate', side_effect=_mock_ollama),
-            patch('add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
-            patch('add_words.ollama_generate_furigana', return_value=''),
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
-            from add_words import add_words, DEFAULT_OUTPUT
+            from scripts.add_words import add_words, DEFAULT_OUTPUT
             add_words(['食べる'], DEFAULT_OUTPUT, 'gemma4:e4b', ['french'])
-        assert (tmp_path / 'custom_words.csv').exists()
+        assert (tmp_path / 'output' / 'custom_words.csv').exists()

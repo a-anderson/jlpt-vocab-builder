@@ -6,11 +6,11 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from build_jlpt_csv import LANGUAGES, ollama_generate
-from dictionary import build_jmdict_index
-from download import ensure_jmdict, DATA_DIR
-from drop_words import load_checkpoint, save_checkpoint
-from normalise import normalise_word
+from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint
+from jlpt_vocab.dictionary import build_jmdict_index
+from jlpt_vocab.download import ensure_jmdict, DATA_DIR
+from jlpt_vocab.normalise import normalise_word
+from jlpt_vocab.pipeline import LANGUAGES, ollama_generate
 
 
 def add_language_columns(csv_path: Path, lang: str, model: str) -> None:
@@ -39,12 +39,14 @@ def add_language_columns(csv_path: Path, lang: str, model: str) -> None:
     out_path = csv_path.with_suffix('.tmp')
 
     if out_path.exists() and done:
+        # Resume: .tmp file exists and checkpoint has progress — append remaining rows
         mode = 'a'
+    elif not out_path.exists() and done:
+        # Stale checkpoint: a previous run finished and renamed .tmp → csv; nothing left to do
+        checkpoint_path.unlink(missing_ok=True)
+        return
     else:
-        if not out_path.exists() and done:
-            # Previous run completed and renamed .tmp to original; stale checkpoint
-            checkpoint_path.unlink(missing_ok=True)
-            return
+        # Fresh start: no in-progress .tmp file
         mode = 'w'
 
     with open(out_path, mode, newline='', encoding='utf-8') as f:
@@ -84,7 +86,7 @@ def add_language_columns(csv_path: Path, lang: str, model: str) -> None:
     out_path.replace(csv_path)
     checkpoint_path.unlink(missing_ok=True)
     print(f'Done. {lang.capitalize()} columns added to {csv_path}.')
-    print('Run `python generate_pitch_svgs.py` if you have not already done so.')
+    print('Run `python scripts/generate_svgs.py` if you have not already done so.')
 
 
 def main() -> None:

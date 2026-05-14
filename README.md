@@ -6,7 +6,7 @@ Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Ank
 
 ## Output
 
-`jlpt_vocab.csv` — one row per word, 13+ columns depending on languages selected:
+`output/jlpt_vocab.csv` — one row per word, 13+ columns depending on languages selected:
 
 | Column | Example |
 |---|---|
@@ -49,7 +49,8 @@ Data files are **downloaded automatically on first run** into the `data/` direct
 ```bash
 python -m venv venv
 source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .               # installs package and all runtime dependencies
+pip install -r requirements.txt  # dev dependencies (pytest)
 python -m unidic download
 ```
 
@@ -61,19 +62,19 @@ python -m unidic download
 source venv/bin/activate
 
 # Full run (all levels, French only)
-python build_jlpt_csv.py --model gemma4:e4b
+python scripts/build.py --model gemma4:e4b
 
 # Multiple languages
-python build_jlpt_csv.py --model gemma4:e4b --languages french spanish german
+python scripts/build.py --model gemma4:e4b --languages french spanish german
 
 # Subset of levels
-python build_jlpt_csv.py --model gemma4:e4b --levels n4 n3
+python scripts/build.py --model gemma4:e4b --levels n4 n3
 
 # Resume after interruption
-python build_jlpt_csv.py --model gemma4:e4b --resume
+python scripts/build.py --model gemma4:e4b --resume
 
 # Generate pitch accent SVGs (run once after CSV is complete)
-python generate_pitch_svgs.py
+python scripts/generate_svgs.py
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
@@ -83,17 +84,17 @@ The pipeline writes rows incrementally and checkpoints after every word, so `--r
 Run one level per terminal to process levels concurrently:
 
 ```bash
-python build_jlpt_csv.py --model gemma4:e4b --levels n4 --output n4.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n3 --output n3.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n2 --output n2.csv
-python build_jlpt_csv.py --model gemma4:e4b --levels n1 --output n1.csv
+python scripts/build.py --model gemma4:e4b --levels n4 --output output/n4.csv
+python scripts/build.py --model gemma4:e4b --levels n3 --output output/n3.csv
+python scripts/build.py --model gemma4:e4b --levels n2 --output output/n2.csv
+python scripts/build.py --model gemma4:e4b --levels n1 --output output/n1.csv
 ```
 
 Concatenate when all are done:
 
 ```bash
-head -1 n4.csv > jlpt_vocab.csv
-for f in n4.csv n3.csv n2.csv n1.csv; do tail -n +2 "$f"; done >> jlpt_vocab.csv
+head -1 output/n4.csv > output/jlpt_vocab.csv
+for f in output/n4.csv output/n3.csv output/n2.csv output/n1.csv; do tail -n +2 "$f"; done >> output/jlpt_vocab.csv
 ```
 
 ---
@@ -103,7 +104,7 @@ for f in n4.csv n3.csv n2.csv n1.csv; do tail -n +2 "$f"; done >> jlpt_vocab.csv
 If Ollama fails mid-run, some rows may have empty fields. Re-run with `--repair` to find and reprocess them:
 
 ```bash
-python build_jlpt_csv.py --model gemma4:e4b --output n4.csv --repair
+python scripts/build.py --model gemma4:e4b --output output/n4.csv --repair
 ```
 
 The pipeline auto-detects which languages are in the CSV — no need to pass `--languages`.
@@ -115,7 +116,7 @@ The pipeline auto-detects which languages are in the CSV — no need to pass `--
 To retrofit a finished CSV with a new language's glosses and sentence translations without reprocessing everything:
 
 ```bash
-python add_language_columns.py --language german --output n4.csv --model gemma4:e4b
+python scripts/add_language.py --language german --output output/n4.csv --model gemma4:e4b
 ```
 
 Supported languages: `french`, `spanish`, `german`, `dutch`, `russian`, `swedish`.
@@ -127,14 +128,14 @@ The script checkpoints after each row and can be safely interrupted and resumed.
 ## Add custom words outside the JLPT list
 
 ```bash
-# Write to custom_words.csv (created if absent)
-python add_words.py 猫背 蹴る --model gemma4:e4b
+# Write to output/custom_words.csv (created if absent)
+python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
 
 # Append to an existing CSV
-python add_words.py 猫背 --output n4.csv --model gemma4:e4b
+python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
 
 # With extra languages
-python add_words.py 猫背 --output custom_words.csv --model gemma4:e4b --languages french spanish
+python scripts/add_words.py 猫背 --output output/custom_words.csv --model gemma4:e4b --languages french spanish
 ```
 
 Custom words are written with `レベル = Custom`.
@@ -146,7 +147,7 @@ Custom words are written with `レベル = Custom`.
 To remove words from a CSV and its paired checkpoint (e.g. before reprocessing failed rows):
 
 ```bash
-python drop_words.py 下りる 招致 --output n4.csv
+python scripts/drop_words.py 下りる 招致 --output output/n4.csv
 ```
 
 Then re-run with `--resume` to regenerate just those rows.
@@ -155,23 +156,24 @@ Then re-run with `--resume` to regenerate just those rows.
 
 ## Migration (existing users)
 
-If you set up the project before the `data/` restructure, move your existing data files:
+If you set up the project before the `output/` restructure, move your existing files:
 
 ```bash
-mkdir -p data/nhk_data
-mv jitendex-yomitan JMdict_french accents.txt data/
-mv nhk_data/ACCDB_unicode.csv data/nhk_data/
+mkdir -p output
+mv n*.csv n*_checkpoint.json output/
+mv pitch_svgs/ output/
+pip install -e .
 ```
 
 ---
 
 ## Anki integration
 
-1. Import `jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
-2. Copy all SVGs from `pitch_svgs/` into your Anki media folder:
-   - macOS: `~/Library/Application Support/Anki2/<profile>/collection.media/`
-   - Linux: `~/.local/share/Anki2/<profile>/collection.media/`
-   - Windows: `%APPDATA%\Anki2\<profile>\collection.media\`
+1. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
+2. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
+   - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
+   - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`
+   - Windows: copy to `%APPDATA%\Anki2\<profile>\collection.media\`
 3. Reference the columns in your card template:
 
 ```html

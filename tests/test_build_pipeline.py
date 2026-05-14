@@ -1,15 +1,12 @@
-"""Tests for build_jlpt_csv helper functions."""
+"""Tests for pipeline helper functions."""
 
-import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from unittest.mock import patch
 
-import build_jlpt_csv
+from jlpt_vocab import pipeline as build_jlpt_csv
 import csv as _csv
 
-from build_jlpt_csv import (
+from jlpt_vocab.pipeline import (
     word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
     make_csv_columns, ollama_generate_furigana,
     find_repair_candidates, detect_csv_languages,
@@ -129,12 +126,12 @@ class TestMakeCsvColumns:
 
 class TestOllamaGenerateFurigana:
     def test_returns_ruby_html(self):
-        with patch('build_jlpt_csv._ollama_chat', return_value='食[た]べる'):
+        with patch('jlpt_vocab.pipeline._ollama_chat', return_value='食[た]べる'):
             result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
         assert result == '<ruby>食<rt>た</rt></ruby>べる'
 
     def test_returns_empty_on_failure(self):
-        with patch('build_jlpt_csv._ollama_chat', side_effect=Exception('fail')):
+        with patch('jlpt_vocab.pipeline._ollama_chat', side_effect=Exception('fail')):
             result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
         assert result == ''
 
@@ -142,7 +139,7 @@ class TestOllamaGenerateFurigana:
         original = build_jlpt_csv.ollama_client
         try:
             build_jlpt_csv.ollama_client = None
-            with patch('build_jlpt_csv._ollama_chat') as mock_chat:
+            with patch('jlpt_vocab.pipeline._ollama_chat') as mock_chat:
                 result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
             mock_chat.assert_not_called()
             assert result == ''
