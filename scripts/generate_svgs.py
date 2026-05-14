@@ -201,6 +201,8 @@ def collect_pairs(csv_path: Path) -> tuple[set[tuple[int, int]], bool]:
                     pairs.add((int(parts[0]), int(parts[1])))
                 except ValueError:
                     has_unknown = True
+            else:
+                has_unknown = True
 
     return pairs, has_unknown
 
