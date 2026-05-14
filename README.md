@@ -1,4 +1,4 @@
-# jlpt-vocab-builder
+# JLPT Vocab Builder
 
 Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and optional language glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
 
@@ -8,21 +8,21 @@ Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Ank
 
 `output/jlpt_vocab.csv` — one row per word, 13+ columns depending on languages selected:
 
-| Column | Example |
-|---|---|
-| 単語 (word) | 食べる |
-| 振り仮名 (furigana) | `<ruby>食<rt>た</rt></ruby>べる` |
-| 品詞 (part of speech) | 他動詞 |
-| ピッチアクセント (pitch pattern) | `2` |
-| ピッチアクセント図 (pitch diagram) | `3_2.svg` |
-| 英語訳 (English gloss) | to eat; to consume |
-| 仏語訳 (French gloss) | manger; consommer |
-| 例文 (example sentence) | 毎朝ご飯を食べる。 |
-| 例文振り仮名 (sentence furigana) | `<ruby>毎朝<rt>まいあさ</rt></ruby>ご飯を…` |
-| 英語例文 (English sentence) | I eat rice every morning. |
-| 仏語例文 (French sentence) | Je mange du riz chaque matin. |
-| 日本語ターゲット (surface form) | 食べた |
-| レベル (JLPT level) | N4 |
+| Column                             | Example                                     |
+| ---------------------------------- | ------------------------------------------- |
+| 単語 (word)                        | 食べる                                      |
+| 振り仮名 (furigana)                | `<ruby>食<rt>た</rt></ruby>べる`            |
+| 品詞 (part of speech)              | 他動詞                                      |
+| ピッチアクセント (pitch pattern)   | `2`                                         |
+| ピッチアクセント図 (pitch diagram) | `3_2.svg`                                   |
+| 英語訳 (English gloss)             | to eat; to consume                          |
+| 仏語訳 (French gloss)              | manger; consommer                           |
+| 例文 (example sentence)            | 毎朝ご飯を食べる。                          |
+| 例文振り仮名 (sentence furigana)   | `<ruby>毎朝<rt>まいあさ</rt></ruby>ご飯を…` |
+| 英語例文 (English sentence)        | I eat rice every morning.                   |
+| 仏語例文 (French sentence)         | Je mange du riz chaque matin.               |
+| 日本語ターゲット (surface form)    | 食べた                                      |
+| レベル (JLPT level)                | N4                                          |
 
 Furigana columns use HTML `<ruby>` tags. Enable **Allow HTML in fields** when importing into Anki.
 
@@ -35,12 +35,12 @@ Furigana columns use HTML `<ruby>` tags. Enable **Allow HTML in fields** when im
 
 Data files are **downloaded automatically on first run** into the `data/` directory. Manual download locations (if you prefer to pre-populate):
 
-| File | Source |
-|---|---|
-| `data/jitendex-yomitan/` | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder |
-| `data/JMdict_french/` | [JMdict French for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_french.zip) — extract zip contents into folder |
-| `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv) |
-| `data/accents.txt` | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt) |
+| File                              | Source                                                                                                                                                    |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/jitendex-yomitan/`          | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder |
+| `data/JMdict_french/`             | [JMdict French for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_french.zip) — extract zip contents into folder     |
+| `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv)                                           |
+| `data/accents.txt`                | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt)                                 |
 
 ---
 
@@ -48,10 +48,10 @@ Data files are **downloaded automatically on first run** into the `data/` direct
 
 ```bash
 python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -e .               # installs package and all runtime dependencies
-pip install -r requirements.txt  # dev dependencies (pytest)
-python -m unidic download
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pip install -e .                  # installs package and all runtime dependencies
+pip install -r requirements-dev.txt  # dev dependencies (pytest)
+python -m unidic download         # downloads full UniDic (~750 MB); skip if running tests only
 ```
 
 ---
@@ -78,6 +78,8 @@ python scripts/generate_svgs.py
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
+
+> **Note on speed:** Each word requires one or two Ollama calls (sentence generation, furigana, translations). Expect roughly 20 seconds per word on a modern laptop — around 45 hours for the full 8,000-word dataset. Parallel runs across four terminals cut this proportionally.
 
 ### Parallel runs
 
@@ -195,17 +197,15 @@ pip install -e .
 
 1. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
 2. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
-   - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
-   - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`
-   - Windows: copy to `%APPDATA%\Anki2\<profile>\collection.media\`
+    - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
+    - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`
+    - Windows: copy to `%APPDATA%\Anki2\<profile>\collection.media\`
 3. Reference the columns in your card template:
 
 ```html
 {{振り仮名}}
-<img src="{{ピッチアクセント図}}">
-{{英語訳}} / {{仏語訳}}
-{{例文振り仮名}}
-{{英語例文}} / {{仏語例文}}
+<img src="{{ピッチアクセント図}}" />
+{{英語訳}} / {{仏語訳}} {{例文振り仮名}} {{英語例文}} / {{仏語例文}}
 ```
 
 ---
@@ -213,6 +213,12 @@ pip install -e .
 ## Adding TTS audio to your Anki deck
 
 To add text-to-speech audio for the vocabulary and example sentences in your deck, see [Anki-TTS-Automation](https://github.com/a-anderson/Anki-TTS-Automation).
+
+---
+
+## Project status
+
+This is a personal project and is **not accepting external contributions or pull requests.** Issues and bug reports are also not monitored. Feel free to fork and adapt the code for your own use under the terms of the MIT licence.
 
 ---
 
@@ -226,9 +232,9 @@ python -m pytest tests/ -v
 
 ## Data sources & licensing
 
-| Source | Used for | Licence |
-|---|---|---|
-| [chadmuro/jlpt-vocab](https://github.com/chadmuro/jlpt-vocab) | Word lists | MIT |
-| [Jitendex](https://github.com/stephenmk/stephenmk.github.io) | EN glosses, POS, example sentences | CC BY-SA 4.0 |
-| [JMdict (yomidevs)](https://github.com/yomidevs/jmdict-yomitan) | Language glosses | CC BY-SA 4.0 |
-| Kanjium / NHK pitch data | Pitch accent | Derived from commercial dictionaries — personal study only |
+| Source                                                          | Used for                           | Licence                                                    |
+| --------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| [chadmuro/jlpt-vocab](https://github.com/chadmuro/jlpt-vocab)   | Word lists                         | MIT                                                        |
+| [Jitendex](https://github.com/stephenmk/stephenmk.github.io)    | EN glosses, POS, example sentences | CC BY-SA 4.0                                               |
+| [JMdict (yomidevs)](https://github.com/yomidevs/jmdict-yomitan) | Language glosses                   | CC BY-SA 4.0                                               |
+| Kanjium / NHK pitch data                                        | Pitch accent                       | Derived from commercial dictionaries — personal study only |
