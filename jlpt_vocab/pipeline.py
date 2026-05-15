@@ -63,6 +63,13 @@ def fetch_chadmuro_words(level: str) -> list[dict]:
         kanji = _ts_field(entry, 'kanji')
         if not kanji:
             continue
+        # Some counters repeat the kanji once per reading: "～杯、～杯、～杯" → "～杯"
+        parts = kanji.split('、')
+        seen: list[str] = []
+        for p in parts:
+            if p not in seen:
+                seen.append(p)
+        kanji = '、'.join(seen)
         words.append({
             '単語': kanji.strip(),
             '振り仮名_raw': (_ts_field(entry, 'japanese') or kanji).strip(),

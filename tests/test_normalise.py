@@ -38,3 +38,16 @@ class TestNormaliseWord:
         result = normalise_word('行く')
         assert isinstance(result['lookup_forms'], list)
         assert len(result['lookup_forms']) >= 1
+
+    def test_tilde_prefix_stripped(self):
+        result = normalise_word('～以上')
+        assert result['lookup_forms'] == ['以上']
+        assert result['inferred_pos'] == ''
+
+    def test_tilde_prefix_counter(self):
+        result = normalise_word('～杯')
+        assert result['lookup_forms'] == ['杯']
+
+    def test_tilde_only_not_stripped(self):
+        result = normalise_word('～')
+        assert result['lookup_forms'] == ['～']

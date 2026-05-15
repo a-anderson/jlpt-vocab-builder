@@ -60,6 +60,41 @@ class TestExtractTarget:
         assert extract_target('食べる', '') == ''
 
 
+class TestFetchChadmuroDedup:
+    def test_counter_kanji_deduplicated(self):
+        from unittest.mock import patch, MagicMock
+        import jlpt_vocab.pipeline as pl
+        ts_text = '{ id: 1, kanji: "～杯、～杯、～杯", japanese: "～ 杯[はい]、～ 杯[ぱい]、～ 杯[ばい]", english: "cup" }'
+        mock_resp = MagicMock()
+        mock_resp.text = ts_text
+        mock_resp.raise_for_status = lambda: None
+        with patch('jlpt_vocab.pipeline.requests.get', return_value=mock_resp):
+            words = pl.fetch_chadmuro_words('n4')
+        assert words[0]['単語'] == '～杯'
+
+    def test_furigana_raw_preserved_with_all_readings(self):
+        from unittest.mock import patch, MagicMock
+        import jlpt_vocab.pipeline as pl
+        ts_text = '{ id: 1, kanji: "～杯、～杯、～杯", japanese: "～ 杯[はい]、～ 杯[ぱい]、～ 杯[ばい]", english: "cup" }'
+        mock_resp = MagicMock()
+        mock_resp.text = ts_text
+        mock_resp.raise_for_status = lambda: None
+        with patch('jlpt_vocab.pipeline.requests.get', return_value=mock_resp):
+            words = pl.fetch_chadmuro_words('n4')
+        assert words[0]['振り仮名_raw'] == '～ 杯[はい]、～ 杯[ぱい]、～ 杯[ばい]'
+
+    def test_unique_parts_unchanged(self):
+        from unittest.mock import patch, MagicMock
+        import jlpt_vocab.pipeline as pl
+        ts_text = '{ id: 1, kanji: "一、二、三", japanese: "いち、に、さん", english: "one two three" }'
+        mock_resp = MagicMock()
+        mock_resp.text = ts_text
+        mock_resp.raise_for_status = lambda: None
+        with patch('jlpt_vocab.pipeline.requests.get', return_value=mock_resp):
+            words = pl.fetch_chadmuro_words('n4')
+        assert words[0]['単語'] == '一、二、三'
+
+
 class TestTsField:
     def test_extracts_kanji(self):
         entry = 'kanji: "食べる"'

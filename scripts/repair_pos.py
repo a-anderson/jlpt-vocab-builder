@@ -6,6 +6,7 @@ from pathlib import Path
 
 from jlpt_vocab.dictionary import build_jitendex_index
 from jlpt_vocab.download import DATA_DIR
+from jlpt_vocab.normalise import normalise_word
 
 
 def repair_pos(csv_path: Path) -> None:
@@ -20,7 +21,8 @@ def repair_pos(csv_path: Path) -> None:
     for row in rows:
         if row.get('品詞'):
             continue
-        jm = jitendex.get(row['単語'], {})
+        lookup_forms = normalise_word(row['単語'])['lookup_forms']
+        jm = next((jitendex[f] for f in lookup_forms if f in jitendex), {})
         if not jm:
             continue
         if jm.get('品詞'):

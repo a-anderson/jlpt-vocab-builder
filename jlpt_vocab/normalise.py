@@ -27,4 +27,8 @@ def normalise_word(word: str) -> dict:
         base, tag = suffix.group(1).strip(), suffix.group(2)
         return {'lookup_forms': [base], 'inferred_pos': _SUFFIX_POS.get(tag, '')}
 
+    # ～ is a chadmuro convention marking grammar suffixes; strip it for dictionary lookup
+    if word.startswith('～') and len(word) > 1:
+        return {'lookup_forms': [word[1:]], 'inferred_pos': ''}
+
     return {'lookup_forms': [word], 'inferred_pos': ''}

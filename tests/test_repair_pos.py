@@ -147,6 +147,19 @@ class TestRepairPos:
         assert rows[1]['品詞'] == '一段動詞'
         assert rows[2]['品詞'] == ''
 
+    def test_tilde_word_strips_prefix_for_lookup(self, tmp_path):
+        csv_path = tmp_path / 'vocab.csv'
+        _write_csv(csv_path, [
+            {c: '' for c in COLUMNS} | {'単語': '～以上', '品詞': '', '英語訳': ''},
+        ], COLUMNS)
+        # Jitendex has '以上' not '～以上'
+        jitendex = {'以上': {'品詞': '名詞', '英語訳': 'or more; and above'}}
+        with patch(_JITENDEX_PATCH, return_value=jitendex):
+            from scripts.repair_pos import repair_pos
+            repair_pos(csv_path)
+        rows = _read_csv(csv_path)
+        assert rows[0]['品詞'] == '名詞'
+
     def test_preserves_csv_columns(self, tmp_path):
         csv_path = tmp_path / 'vocab.csv'
         _write_csv(csv_path, [
