@@ -14,6 +14,8 @@ def normalise_word(word: str) -> dict:
 
     Handles prefix parens: '（ご）主人' → forms=['ご主人', '主人']
     Handles suffix parens: '残念（な）'  → forms=['残念'], pos='な形容詞'
+    Handles leading tilde:  '～以上'     → forms=['以上']
+    Handles trailing tilde: '真～'       → forms=['真']
 
     Returns {'lookup_forms': list[str], 'inferred_pos': str}
     """
@@ -27,8 +29,11 @@ def normalise_word(word: str) -> dict:
         base, tag = suffix.group(1).strip(), suffix.group(2)
         return {'lookup_forms': [base], 'inferred_pos': _SUFFIX_POS.get(tag, '')}
 
-    # ～ is a chadmuro convention marking grammar suffixes; strip it for dictionary lookup
+    # ～ is a chadmuro convention marking affix words; strip it for dictionary lookup
     if word.startswith('～') and word != '～':
         return {'lookup_forms': [word[1:]], 'inferred_pos': ''}
+
+    if word.endswith('～') and word != '～':
+        return {'lookup_forms': [word[:-1]], 'inferred_pos': ''}
 
     return {'lookup_forms': [word], 'inferred_pos': ''}

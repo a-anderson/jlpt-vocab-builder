@@ -51,3 +51,17 @@ class TestNormaliseWord:
     def test_tilde_only_not_stripped(self):
         result = normalise_word('～')
         assert result['lookup_forms'] == ['～']
+
+    def test_tilde_suffix_single_kanji(self):
+        result = normalise_word('真～')
+        assert result['lookup_forms'] == ['真']
+        assert result['inferred_pos'] == ''
+
+    def test_tilde_suffix_multi_kanji(self):
+        result = normalise_word('双方～')
+        assert result['lookup_forms'] == ['双方']
+
+    def test_tilde_both_ends_strips_prefix_only(self):
+        # startswith branch fires first; trailing ～ remains in the lookup form
+        result = normalise_word('～て～')
+        assert result['lookup_forms'] == ['て～']
