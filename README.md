@@ -179,6 +179,29 @@ File words are processed first. Duplicates between the file and command-line arg
 
 ---
 
+## Fixing furigana bracket notation
+
+If a word file has malformed bracket notation (e.g. `火[かようび]曜日` instead of `火[か]曜[よう]日[び]`), use `fix_furigana.py` to correct the file in place:
+
+```bash
+python scripts/fix_furigana.py --file n5.csv --model gemma4:e4b
+```
+
+The script:
+- Accepts any text or CSV file with one word per line
+- Skips blank lines and lines starting with `#`
+- Looks up the correct reading from the local Jitendex dictionary first, falling back to the reading already embedded in the broken notation
+- Asks the Ollama model to redistribute the reading correctly per-kanji (e.g. `火[か]曜[よう]日[び]`)
+- For ateji/irregular readings that can't be split per-kanji, brackets the whole compound (e.g. `今朝[けさ]`)
+- Writes fixes back to the same file; unfixable words are left unchanged and logged
+
+| Flag | Description |
+|---|---|
+| `--file` | Path to the input file (required) |
+| `--model` | Ollama model name (required) |
+
+---
+
 ## Dropping words
 
 To remove words from a CSV and its paired checkpoint (e.g. before reprocessing failed rows):

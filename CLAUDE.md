@@ -41,6 +41,7 @@ scripts/                    — CLI entry points (run with python scripts/<name>
   add_language.py           — retrofit a finished CSV with a new language
   add_words.py              — append arbitrary words to a CSV
   drop_words.py             — remove words from CSV and checkpoint
+  fix_furigana.py           — fix malformed bracket-notation furigana in a word file
 
 tests/
   test_build_pipeline.py
