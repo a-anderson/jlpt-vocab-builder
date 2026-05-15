@@ -121,15 +121,24 @@ The pipeline auto-detects which languages are in the CSV — no need to pass `--
 
 ---
 
-## Backfill missing 品詞 and 英語訳
+## Backfill missing 品詞, 英語訳, and pitch accent
 
-If a finished CSV has rows with empty 品詞 or 英語訳 — typically kana-only words whose canonical form in Jitendex is kanji (e.g. `ある` → `有る`) — backfill them from the dictionary without reprocessing the pipeline:
+If a finished CSV has rows with empty 品詞, 英語訳, or ピッチアクセント — typically kana-only words whose canonical form in Jitendex is kanji (e.g. `ある` → `有る`), bare な-adjectives (e.g. `ラッキーな`), or bare と-adverbs (e.g. `すらりと`) — backfill them from the dictionary without reprocessing the pipeline:
 
 ```bash
 python scripts/repair_pos.py --output output/n4.csv
 ```
 
-The script updates only rows where 品詞 is empty and the word is found in Jitendex. Rows with existing 品詞, and words not found in Jitendex, are left untouched.
+The script handles all combinations of missing fields in a single pass:
+
+| 品詞 empty | ピッチアクセント empty | Action |
+|---|---|---|
+| yes | yes | backfill both |
+| yes | no | backfill 品詞 and 英語訳 only |
+| no | yes | backfill pitch only |
+| no | no | skip |
+
+Words not found in Jitendex are left untouched.
 
 | Flag | Description |
 |---|---|

@@ -65,3 +65,29 @@ class TestNormaliseWord:
         # startswith branch fires first; trailing ～ remains in the lookup form
         result = normalise_word('～て～')
         assert result['lookup_forms'] == ['て～']
+
+    def test_bare_na_suffix_stripped(self):
+        result = normalise_word('ラッキーな')
+        assert result['lookup_forms'] == ['ラッキーな', 'ラッキー']
+        assert result['inferred_pos'] == ''
+
+    def test_bare_to_suffix_stripped(self):
+        result = normalise_word('すらりと')
+        assert result['lookup_forms'] == ['すらりと', 'すらり']
+        assert result['inferred_pos'] == ''
+
+    def test_single_char_na_not_stripped(self):
+        assert normalise_word('な')['lookup_forms'] == ['な']
+
+    def test_single_char_to_not_stripped(self):
+        assert normalise_word('と')['lookup_forms'] == ['と']
+
+    def test_bare_na_non_adjective_original_first(self):
+        # Original form is tried first — non-adjective な words (e.g. はな) are not accidentally stripped
+        result = normalise_word('はな')
+        assert result['lookup_forms'][0] == 'はな'
+
+    def test_bare_to_non_adverb_original_first(self):
+        # Original form is tried first — と words in Jitendex (e.g. もっと) are not accidentally stripped
+        result = normalise_word('もっと')
+        assert result['lookup_forms'][0] == 'もっと'

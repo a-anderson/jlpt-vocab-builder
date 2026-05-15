@@ -16,6 +16,8 @@ def normalise_word(word: str) -> dict:
     Handles suffix parens: '残念（な）'  → forms=['残念'], pos='な形容詞'
     Handles leading tilde:  '～以上'     → forms=['以上']
     Handles trailing tilde: '真～'       → forms=['真']
+    Handles bare な suffix: 'ラッキーな' → forms=['ラッキーな', 'ラッキー']
+    Handles bare と suffix: 'すらりと'   → forms=['すらりと', 'すらり']
 
     Returns {'lookup_forms': list[str], 'inferred_pos': str}
     """
@@ -35,5 +37,16 @@ def normalise_word(word: str) -> dict:
 
     if word.endswith('～') and word != '～':
         return {'lookup_forms': [word[:-1]], 'inferred_pos': ''}
+
+    # Chadmuro marks bare な-adjectives and と-adverbs with a trailing suffix;
+    # keep the original as the first form so non-adjective/non-adverb words that
+    # happen to end in な/と (e.g. はな, もっと) still match their Jitendex entry first.
+    # inferred_pos is left empty — unlike the explicit parenthetical forms above,
+    # bare endings are ambiguous, so we let Jitendex supply the POS instead of guessing.
+    if word.endswith('な') and len(word) > 1:
+        return {'lookup_forms': [word, word[:-1]], 'inferred_pos': ''}
+
+    if word.endswith('と') and len(word) > 1:
+        return {'lookup_forms': [word, word[:-1]], 'inferred_pos': ''}
 
     return {'lookup_forms': [word], 'inferred_pos': ''}
