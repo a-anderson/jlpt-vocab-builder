@@ -75,7 +75,7 @@ python scripts/build.py --model gemma4:e4b --languages french spanish german
 # Subset of levels
 python scripts/build.py --model gemma4:e4b --levels n4 n3
 
-# Resume after interruption
+# Resume after interruption (languages auto-detected from the existing CSV)
 python scripts/build.py --model gemma4:e4b --resume
 
 # Generate pitch accent SVGs (run once after CSV is complete)

@@ -65,6 +65,11 @@ def main() -> None:
             done -= candidates
         args.resume = True
         args.languages = effective_langs
+    elif args.resume and not args.languages and output_path.exists():
+        # Infer languages from the existing CSV so resumed rows are written with
+        # the same columns — without this, re-processed words get English-only rows
+        # appended to a multi-language CSV.
+        args.languages = detect_csv_languages(output_path)
 
     ensure_all(args.languages)
 

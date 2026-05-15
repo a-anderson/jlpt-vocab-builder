@@ -227,6 +227,21 @@ class TestFindRepairCandidates:
     def test_missing_csv_returns_empty_set(self, tmp_path):
         assert find_repair_candidates(tmp_path / 'missing.csv', ['例文振り仮名']) == set()
 
+    def test_short_row_treated_as_empty(self, tmp_path):
+        # csv.DictReader fills trailing missing fields with None (restval default).
+        # Write a raw CSV where one row has fewer fields than the header to reproduce
+        # the real failure mode: a row written with English-only columns into a
+        # multi-language CSV leaves the last columns as None when read back.
+        path = tmp_path / 'test.csv'
+        cols = list(_REPAIR_COLS)
+        # 単語 + (len(cols)-3) filler = len(cols)-2 fields: 2 fewer than the header,
+        # so DictReader sets the last two columns to None.
+        short_row = '食べる' + ',x' * (len(cols) - 3)
+        assert short_row.count(',') == len(cols) - 3  # sanity: len(cols)-2 fields total
+        path.write_text(','.join(cols) + '\n' + short_row + '\n', encoding='utf-8')
+        result = find_repair_candidates(path, [cols[-1]])
+        assert '食べる' in result
+
     def test_checks_only_given_cols(self, tmp_path):
         path = tmp_path / 'test.csv'
         rows = [{c: '' for c in _REPAIR_COLS} | {'単語': '食べる', '例文振り仮名': 'ok'}]
@@ -250,6 +265,95 @@ class TestBuildArgparse:
         from scripts.build import _make_parser
         args = _make_parser().parse_args(['--model', 'gemma4:e4b', '--languages', 'french', 'spanish'])
         assert args.languages == ['french', 'spanish']
+
+    def test_resume_infers_languages_from_existing_csv(self, tmp_path):
+        # main() should detect languages from the CSV header when --resume is used
+        # without --languages, so resumed words are written with the correct columns.
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'vocab.csv'
+        _write_csv(path, [], make_csv_columns(['french']))
+        captured = {}
+
+        def fake_process_word(word, model, jitendex, lang_indexes, langs, **kw):
+            captured['langs'] = langs
+            raise SystemExit(0)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--resume', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[{'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'}]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            try:
+                build_mod.main()
+            except SystemExit:
+                pass
+        assert captured.get('langs') == ['french']
+
+    def test_resume_explicit_languages_not_overridden(self, tmp_path):
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'vocab.csv'
+        _write_csv(path, [], make_csv_columns(['french']))
+        captured = {}
+
+        def fake_process_word(word, model, jitendex, lang_indexes, langs, **kw):
+            captured['langs'] = langs
+            raise SystemExit(0)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--resume', '--output', str(path), '--languages', 'spanish']
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[{'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'}]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            try:
+                build_mod.main()
+            except SystemExit:
+                pass
+        assert captured.get('langs') == ['spanish']
+
+    def test_repair_infers_languages_and_reprocesses_incomplete_rows(self, tmp_path):
+        # --repair must still detect languages from the CSV and drop+reprocess
+        # incomplete rows — regression guard for the if/elif restructure.
+        from unittest.mock import patch
+        import json, scripts.build as build_mod
+        path = tmp_path / 'vocab.csv'
+        cols = make_csv_columns(['french'])
+        _write_csv(path, [
+            {c: 'ok' for c in cols} | {'単語': '食べる'},
+            {c: '' for c in cols} | {'単語': '走る', '例文振り仮名': ''},
+        ], cols)
+        # Seed checkpoint so 食べる is treated as already done and only 走る is repaired.
+        ckpt = path.with_name('vocab_checkpoint.json')
+        ckpt.write_text(json.dumps(['食べる']), encoding='utf-8')
+        captured = {}
+
+        def fake_process_word(word, model, jitendex, lang_indexes, langs, **kw):
+            captured['word'] = word
+            captured['langs'] = langs
+            raise SystemExit(0)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'},
+                 {'単語': '走る', '振り仮名_raw': '走る', '英語訳_raw': 'to run', 'レベル': 'N4'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            try:
+                build_mod.main()
+            except SystemExit:
+                pass
+        # 走る is the incomplete row — it should be the one reprocessed
+        assert captured.get('word') == '走る'
+        assert captured.get('langs') == ['french']
 
 
 class TestDetectCsvLanguages:

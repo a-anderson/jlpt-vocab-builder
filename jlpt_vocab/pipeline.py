@@ -64,12 +64,7 @@ def fetch_chadmuro_words(level: str) -> list[dict]:
         if not kanji:
             continue
         # Some counters repeat the kanji once per reading: "～杯、～杯、～杯" → "～杯"
-        parts = kanji.split('、')
-        seen: list[str] = []
-        for p in parts:
-            if p not in seen:
-                seen.append(p)
-        kanji = '、'.join(seen)
+        kanji = '、'.join(dict.fromkeys(kanji.split('、')))
         words.append({
             '単語': kanji.strip(),
             '振り仮名_raw': (_ts_field(entry, 'japanese') or kanji).strip(),
@@ -363,7 +358,7 @@ def find_repair_candidates(csv_path: Path, repair_cols: list[str]) -> set[str]:
     candidates = set()
     with open(csv_path, newline='', encoding='utf-8') as f:
         for row in csv.DictReader(f):
-            if any(not row.get(col, '').strip() for col in repair_cols if col in row):
+            if any(not (row.get(col) or '').strip() for col in repair_cols if col in row):
                 candidates.add(row['単語'])
     return candidates
 

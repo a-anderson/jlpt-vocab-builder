@@ -210,7 +210,7 @@ python scripts/build.py --model gemma4:e4b --languages french spanish german
 # Subset of levels
 python scripts/build.py --model gemma4:e4b --levels n4 n3
 
-# Resume after crash
+# Resume after crash (languages auto-detected from the existing CSV)
 python scripts/build.py --model gemma4:e4b --resume
 
 # Repair rows with empty Ollama-generated fields
