@@ -20,12 +20,16 @@ from jlpt_vocab.pipeline import (
 DEFAULT_OUTPUT = Path('output/custom_words.csv')
 
 _HAS_KANA = re.compile(r'[぀-ヿ]')
+_HAS_KANJI = re.compile(r'[一-鿿㐀-䶿]')
+_BRACKET_RE = re.compile(r'\[([^\]]+)\]')
 
 
 def _word_furigana(word: str, reading: str, model: str) -> str:
     """Return ruby HTML furigana for a word given its kana reading."""
     if '[' in word:
         return bracket_to_ruby(word)
+    if not _HAS_KANJI.search(word):
+        return word
     if not reading:
         return ''
     if not _HAS_KANA.search(word):
@@ -65,18 +69,19 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
             writer.writeheader()
 
         for word in tqdm(words, desc='Processing words'):
-            if word in done:
+            bare_word = _BRACKET_RE.sub('', word)
+            if bare_word in done:
                 continue
 
             content, lookup_forms, jitendex_reading = process_word(
-                word, model, jitendex, lang_indexes, langs,
+                bare_word, model, jitendex, lang_indexes, langs,
             )
             振り仮名 = _word_furigana(word, jitendex_reading, model)
             reading = plain_kana(word)
             pitch_cols = get_pitch_columns(lookup_forms[0], reading)
 
             writer.writerow({k: v.replace('\x00', '') for k, v in {
-                '単語': word,
+                '単語': bare_word,
                 '振り仮名': 振り仮名,
                 'ピッチアクセント': pitch_cols['ピッチアクセント'],
                 'ピッチアクセント図': pitch_cols['ピッチアクセント図'],
@@ -84,7 +89,7 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
                 'レベル': 'Custom',
             }.items()})
             f.flush()
-            done.add(word)
+            done.add(bare_word)
             save_checkpoint(done, checkpoint_path)
 
     print(f'Done. {len(done)} word(s) written to {output_path}.')
@@ -94,7 +99,7 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
 def _read_words_file(path: Path) -> list[str]:
     """Read one word per line; skip blank lines and # comments."""
     with path.open(encoding='utf-8') as f:
-        return [ln for ln in (line.strip() for line in f) if ln and not ln.startswith('#')]
+        return [ln for ln in (line.strip().removesuffix(',') for line in f) if ln and not ln.startswith('#')]
 
 
 def add_words_from_args(

@@ -121,6 +121,22 @@ The pipeline auto-detects which languages are in the CSV — no need to pass `--
 
 ---
 
+## Backfill missing 品詞 and 英語訳
+
+If a finished CSV has rows with empty 品詞 or 英語訳 — typically kana-only words whose canonical form in Jitendex is kanji (e.g. `ある` → `有る`) — backfill them from the dictionary without reprocessing the pipeline:
+
+```bash
+python scripts/repair_pos.py --output output/n4.csv
+```
+
+The script updates only rows where 品詞 is empty and the word is found in Jitendex. Rows with existing 品詞, and words not found in Jitendex, are left untouched.
+
+| Flag | Description |
+|---|---|
+| `--output` | CSV file to repair in place (required) |
+
+---
+
 ## Add a language to an existing CSV
 
 To retrofit a finished CSV with a new language's glosses and sentence translations without reprocessing everything:

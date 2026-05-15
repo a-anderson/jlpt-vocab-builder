@@ -229,6 +229,67 @@ class TestJitendexIndexReading:
         for ch in reading:
             assert '぀' <= ch <= 'ヿ' or ch in 'ー', f'{ch!r} is not kana'
 
+    def test_kana_only_lookup_finds_kanji_entry(self, tmp_path):
+        """Kana-only words (e.g. ある) must be findable even when jitendex only
+        has the kanji form (有る) — the index should fall back to reading."""
+        import json
+        from jlpt_vocab.dictionary import build_jitendex_index
+
+        glossary = {'tag': 'ul', 'data': {'content': 'glossary'}, 'content': [
+            {'tag': 'li', 'content': 'to be; to exist'},
+        ]}
+        bank = [
+            ['ある', 'ある', 'forms', '', 50, [], 1, ''],          # no glosses — skipped
+            ['有る', 'ある', '★ priority form', '', 200, [glossary], 2, ''],
+        ]
+        (tmp_path / 'term_bank_1.json').write_text(json.dumps(bank), encoding='utf-8')
+        idx = build_jitendex_index(tmp_path)
+
+        assert 'ある' in idx
+        assert 'to be' in idx['ある']['英語訳']
+
+    def test_kana_lookup_picks_highest_popularity(self, tmp_path):
+        """When multiple kanji forms share a reading, the highest-popularity entry wins."""
+        import json
+        from jlpt_vocab.dictionary import build_jitendex_index
+
+        def glossary(gloss):
+            return {'tag': 'ul', 'data': {'content': 'glossary'}, 'content': [
+                {'tag': 'li', 'content': gloss},
+            ]}
+        bank = [
+            ['在る', 'ある', '', '', 100, [glossary('to be located')], 1, ''],
+            ['有る', 'ある', '', '', 200, [glossary('to have; to exist')], 2, ''],
+        ]
+        (tmp_path / 'term_bank_1.json').write_text(json.dumps(bank), encoding='utf-8')
+        idx = build_jitendex_index(tmp_path)
+
+        assert 'to have' in idx['ある']['英語訳']
+
+    def test_kana_fallback_not_added_when_term_exists(self, tmp_path):
+        """If jitendex has a direct kana entry with glosses, it should take priority."""
+        import json
+        from jlpt_vocab.dictionary import build_jitendex_index
+
+        def glossary(gloss):
+            return {'tag': 'ul', 'data': {'content': 'glossary'}, 'content': [
+                {'tag': 'li', 'content': gloss},
+            ]}
+        bank = [
+            ['ある', 'ある', '', '', 150, [glossary('direct kana entry')], 1, ''],
+            ['有る', 'ある', '', '', 200, [glossary('kanji entry')], 2, ''],
+        ]
+        (tmp_path / 'term_bank_1.json').write_text(json.dumps(bank), encoding='utf-8')
+        idx = build_jitendex_index(tmp_path)
+
+        assert 'direct kana entry' in idx['ある']['英語訳']
+
+    def test_kana_fallback_with_real_data(self, jitendex_index):
+        """ある exists in jitendex only as 有る/在る — reading fallback should expose it."""
+        assert 'ある' in jitendex_index
+        assert jitendex_index['ある']['英語訳'] != ''
+        assert jitendex_index['ある']['品詞'] != ''
+
 
 class TestBuildJmdictIndex:
     def test_name_importable(self):

@@ -162,16 +162,18 @@ def build_jitendex_index(directory: Path) -> dict[str, dict]:
     """Build a headword index from Jitendex yomitan term banks.
 
     Returns headword → {'品詞', '英語訳', '例文', '英語例文', '例文振り仮名'}
-    Keeps the highest-popularity entry per headword.
+    Keeps the highest-popularity entry per headword. Also indexes by reading so
+    that kana-only lookups (e.g. 'ある') find the kanji entry ('有る').
     """
     index: dict[str, dict] = {}
+    reading_best: dict[str, tuple[int, str]] = {}  # reading → (pop, term)
 
     for path in sorted(directory.glob('term_bank_*.json')):
         with open(path, encoding='utf-8') as f:
             entries = json.load(f)
         for entry in entries:
             term = entry[0]
-            def_tags = entry[2] if len(entry) > 2 else ''
+            reading = entry[1] if len(entry) > 1 else ''
             popularity = entry[4] if len(entry) > 4 else 0
             definitions = entry[5] if len(entry) > 5 else []
 
@@ -189,12 +191,21 @@ def build_jitendex_index(directory: Path) -> dict[str, dict]:
             index[term] = {
                 '品詞': _codes_to_hinshi(pos_codes),
                 '英語訳': '; '.join(glosses),
-                '読み': entry[1] if len(entry) > 1 else '',
+                '読み': reading,
                 '例文': example[0] if example else '',
                 '英語例文': example[1] if example else '',
                 '例文振り仮名': example[2] if example else '',
                 '_pop': popularity,
             }
+
+            if reading and reading != term:
+                existing_rb = reading_best.get(reading)
+                if not existing_rb or existing_rb[0] < popularity:
+                    reading_best[reading] = (popularity, term)
+
+    for reading, (_, best_term) in reading_best.items():
+        if reading not in index:
+            index[reading] = dict(index[best_term])
 
     for v in index.values():
         del v['_pop']

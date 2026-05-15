@@ -135,22 +135,42 @@ class TestAddWords:
             add_words(['食べる'], output, 'gemma4:e4b', ['french'])
         mock_gen.assert_not_called()
 
+    def test_skips_bracket_word_already_in_checkpoint(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        checkpoint = output.with_name('out_checkpoint.json')
+        checkpoint.write_text(json.dumps(['食べる']), encoding='utf-8')
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value={}),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words
+            add_words(['食[た]べる'], output, 'gemma4:e4b', ['french'])
+        mock_gen.assert_not_called()
+
     def test_furigana_bracket_notation(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         output = tmp_path / 'out.csv'
-        jitendex = {'食[た]べる': {'品詞': '', '英語訳': '', '読み': '', '例文': '', '英語例文': '', '例文振り仮名': ''}}
+        jitendex = {'食べる': {'品詞': '一段動詞', '英語訳': 'to eat', '読み': 'たべる', '例文': '', '英語例文': '', '例文振り仮名': ''}}
         with (
             patch('scripts.add_words.ensure_all'),
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>食<rt>た</rt></ruby>べる'),
         ):
             from scripts.add_words import add_words
             add_words(['食[た]べる'], output, 'gemma4:e4b', ['french'])
         with open(output, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
+        assert rows[0]['単語'] == '食べる'
         assert rows[0]['振り仮名'] == '<ruby>食<rt>た</rt></ruby>べる'
+        assert rows[0]['品詞'] == '一段動詞'
 
     def test_furigana_kanji_only_with_reading(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -293,6 +313,40 @@ class TestAddWords:
         from scripts.add_words import add_words_from_args
         with pytest.raises(SystemExit):
             add_words_from_args([], tmp_path / 'nonexistent.txt', output, 'gemma4:e4b', ['french'])
+
+    def test_file_trailing_commas_stripped(self, tmp_path):
+        from scripts.add_words import _read_words_file
+        words_file = tmp_path / 'words.csv'
+        words_file.write_text('食[た]べる,\nあちら,\n猫背,\n', encoding='utf-8')
+        assert _read_words_file(words_file) == ['食[た]べる', 'あちら', '猫背']
+
+    def test_furigana_kana_only_returns_word(self):
+        from scripts.add_words import _word_furigana
+        with patch('scripts.add_words.ollama_generate_furigana') as mock_furi:
+            assert _word_furigana('あちら', 'あちら', 'gemma4:e4b') == 'あちら'
+            assert _word_furigana('テレビ', 'テレビ', 'gemma4:e4b') == 'テレビ'
+        mock_furi.assert_not_called()
+
+    def test_word_written_without_trailing_comma(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        words_file = tmp_path / 'words.csv'
+        words_file.write_text('浴[あ]びる,\n', encoding='utf-8')
+        jitendex = {'浴びる': {'品詞': '一段動詞', '英語訳': 'to bathe', '読み': 'あびる', '例文': '', '英語例文': '', '例文振り仮名': ''}}
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '0', 'ピッチアクセント図': '3_0.svg'}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>浴<rt>あ</rt></ruby>びる'),
+        ):
+            from scripts.add_words import add_words_from_args
+            add_words_from_args([], words_file, output, 'gemma4:e4b', [])
+        rows = list(csv.DictReader(open(output, encoding='utf-8')))
+        assert rows[0]['単語'] == '浴びる'
+        assert rows[0]['振り仮名'] == '<ruby>浴<rt>あ</rt></ruby>びる'
+        assert rows[0]['品詞'] == '一段動詞'
 
     def test_uses_default_output_when_no_output_given(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
