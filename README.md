@@ -119,6 +119,10 @@ python scripts/build.py --model gemma4:e4b --output output/n4.csv --repair
 
 The pipeline auto-detects which languages are in the CSV — no need to pass `--languages`.
 
+> **Note:** `--repair` only works for words in the JLPT word lists. To reprocess
+> incomplete rows in a custom words file, use `drop_words.py` to remove them
+> then re-run `add_words.py --resume`.
+
 ---
 
 ## Backfill missing 品詞, 英語訳, and pitch accent

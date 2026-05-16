@@ -88,6 +88,13 @@ def main() -> None:
             unique_words.append(w)
     print(f'Total unique words: {len(unique_words)}')
 
+    if args.repair:
+        unique_words = [w for w in unique_words if w['単語'] in candidates]
+        unfound = candidates - {w['単語'] for w in unique_words}
+        if unfound:
+            print(f'Warning: {len(unfound)} repair candidate(s) not in chadmuro word lists (custom words). '
+                  'Use drop_words.py then add_words.py --resume instead.')
+
     print('Building dictionary indexes...')
     jitendex = build_jitendex_index(JITENDEX_DIR)
     lang_indexes: dict[str, dict[str, str]] = {

@@ -355,6 +355,61 @@ class TestBuildArgparse:
         assert captured.get('word') == '走る'
         assert captured.get('langs') == ['french']
 
+    def test_repair_does_not_add_chadmuro_words_to_custom_file(self, tmp_path):
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'custom.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: '' for c in cols} | {'単語': '猫背', '例文振り仮名': ''},
+        ], cols)
+
+        processed = []
+
+        def fake_process_word(word, *a, **kw):
+            processed.append(word)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'},
+                 {'単語': '走る',   '振り仮名_raw': '走る',   '英語訳_raw': 'to run', 'レベル': 'N4'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index',   return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            build_mod.main()
+
+        assert processed == []
+
+    def test_repair_with_no_candidates_processes_nothing(self, tmp_path):
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'vocab.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: 'ok' for c in cols} | {'単語': '食べる'},
+        ], cols)
+
+        processed = []
+
+        def fake_process_word(word, *a, **kw):
+            processed.append(word)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index',   return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            build_mod.main()
+
+        assert processed == []
+
 
 class TestDetectCsvLanguages:
     def test_single_language(self, tmp_path):
