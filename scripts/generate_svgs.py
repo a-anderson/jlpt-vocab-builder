@@ -50,7 +50,7 @@ DOT_R = 8            # dot radius
 Y_HIGH = 16          # y centre for high dots
 Y_LOW = 52           # y centre for low dots
 SVG_HEIGHT = 72      # total SVG height
-LINE_W = 3           # connecting line stroke width
+LINE_W = 4           # connecting line stroke width
 
 COLOR_HIGH = "#E05A6A"
 COLOR_LOW  = "#4EC3E0"
