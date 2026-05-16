@@ -92,7 +92,7 @@ def main() -> None:
         unfound = candidates - {w['単語'] for w in unique_words}
         if unfound:
             print(f'Warning: {len(unfound)} repair candidate(s) not found in the fetched word lists. '
-                  'For custom words, use drop_words.py then add_words.py --resume instead.')
+                  'For custom words, re-run add_words.py --resume to reprocess them.')
 
     print(f'Total unique words: {len(unique_words)}')
 
