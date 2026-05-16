@@ -355,7 +355,7 @@ class TestBuildArgparse:
         assert captured.get('word') == '走る'
         assert captured.get('langs') == ['french']
 
-    def test_repair_does_not_add_chadmuro_words_to_custom_file(self, tmp_path):
+    def test_repair_does_not_add_chadmuro_words_to_custom_file(self, tmp_path, capsys):
         from unittest.mock import patch
         import scripts.build as build_mod
         path = tmp_path / 'custom.csv'
@@ -382,6 +382,74 @@ class TestBuildArgparse:
             build_mod.main()
 
         assert processed == []
+        assert 'Warning' in capsys.readouterr().out
+
+    def test_repair_mixed_file_reprocesses_jlpt_and_warns_about_custom(self, tmp_path, capsys):
+        # A file with both a JLPT word (走る, incomplete) and a custom word (猫背, incomplete).
+        # 走る should be reprocessed; 猫背 is not in chadmuro so it triggers the warning.
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'mixed.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: 'ok' for c in cols} | {'単語': '食べる'},
+            {c: '' for c in cols}   | {'単語': '走る',  '例文振り仮名': ''},
+            {c: '' for c in cols}   | {'単語': '猫背', '例文振り仮名': ''},
+        ], cols)
+
+        processed = []
+
+        def fake_process_word(word, *a, **kw):
+            processed.append(word)
+            raise SystemExit(0)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'},
+                 {'単語': '走る',   '振り仮名_raw': '走る',   '英語訳_raw': 'to run', 'レベル': 'N4'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index',   return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            try:
+                build_mod.main()
+            except SystemExit:
+                pass
+
+        assert processed == ['走る']
+        assert 'Warning' in capsys.readouterr().out
+
+    def test_repair_with_explicit_levels_warns_if_candidate_not_in_level(self, tmp_path, capsys):
+        # --repair --levels n4 on a file containing an N3 word: chadmuro only returns N4 words,
+        # so the N3 candidate ends up in unfound and triggers the warning with nothing processed.
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        path = tmp_path / 'vocab.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: '' for c in cols} | {'単語': '慣れる', '例文振り仮名': ''},
+        ], cols)
+
+        processed = []
+
+        def fake_process_word(word, *a, **kw):
+            processed.append(word)
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--levels', 'n4', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '食べる', '振り仮名_raw': '食べる', '英語訳_raw': 'to eat', 'レベル': 'N4'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index',   return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word):
+            build_mod.main()
+
+        assert processed == []
+        assert 'Warning' in capsys.readouterr().out
 
     def test_repair_with_no_candidates_processes_nothing(self, tmp_path):
         from unittest.mock import patch
