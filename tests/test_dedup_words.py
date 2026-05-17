@@ -25,8 +25,8 @@ def _read_words(path: Path) -> list[str]:
         return [r['単語'] for r in csv.DictReader(f)]
 
 
-def _blank(word: str, level: str = 'N4') -> dict:
-    return {c: '' for c in _COLS} | {'単語': word, 'レベル': level}
+def _blank(word: str, level: str = 'N4', furigana: str = '') -> dict:
+    return {c: '' for c in _COLS} | {'単語': word, '振り仮名': furigana, 'レベル': level}
 
 
 class TestDedupCsv:
@@ -47,7 +47,7 @@ class TestDedupCsv:
         _write_csv(path, [_blank('食べる'), _blank('走る'), _blank('食べる')])
         assert dedup_csv(path) == 1
 
-    def test_one_duplicate_removes_second_occurrence(self, tmp_path):
+    def test_one_duplicate_removes_last_occurrence(self, tmp_path):
         path = tmp_path / 'test.csv'
         _write_csv(path, [_blank('食べる'), _blank('走る'), _blank('食べる')])
         dedup_csv(path)
@@ -69,6 +69,39 @@ class TestDedupCsv:
             _blank('飛ぶ'), _blank('走る'), _blank('飛ぶ'),
         ])
         assert dedup_csv(path) == 3
+
+    def test_same_word_different_furigana_not_deduplicated(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        hito = _blank('人', furigana='<ruby>人<rt>ひと</rt></ruby>')
+        nin = _blank('人', furigana='<ruby>人<rt>にん</rt></ruby>')
+        _write_csv(path, [hito, nin])
+        assert dedup_csv(path) == 0
+        assert _read_words(path) == ['人', '人']
+
+    def test_word_appearing_three_times_keeps_first(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        _write_csv(path, [
+            _blank('食べる', 'N4'), _blank('走る', 'N4'),
+            _blank('食べる', 'N3'), _blank('食べる', 'N2'),
+        ])
+        dedup_csv(path)
+        with open(path, encoding='utf-8') as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == 2
+        assert rows[0]['単語'] == '食べる'
+        assert rows[0]['レベル'] == 'N4'
+
+    def test_empty_csv_returns_zero(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        _write_csv(path, [])
+        assert dedup_csv(path) == 0
+
+    def test_empty_csv_leaves_file_unchanged(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        _write_csv(path, [])
+        mtime_before = path.stat().st_mtime
+        dedup_csv(path)
+        assert path.stat().st_mtime == mtime_before
 
     def test_preserves_header(self, tmp_path):
         path = tmp_path / 'test.csv'
@@ -100,12 +133,24 @@ class TestCountDuplicates:
         _write_csv(path, [_blank('食べる'), _blank('走る'), _blank('食べる'), _blank('走る')])
         assert count_duplicates(path) == 2
 
+    def test_same_word_different_furigana_not_counted(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        hito = _blank('人', furigana='<ruby>人<rt>ひと</rt></ruby>')
+        nin = _blank('人', furigana='<ruby>人<rt>にん</rt></ruby>')
+        _write_csv(path, [hito, nin])
+        assert count_duplicates(path) == 0
+
     def test_does_not_modify_file(self, tmp_path):
         path = tmp_path / 'test.csv'
         _write_csv(path, [_blank('食べる'), _blank('食べる')])
         mtime_before = path.stat().st_mtime
         count_duplicates(path)
         assert path.stat().st_mtime == mtime_before
+
+    def test_empty_csv_returns_zero(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        _write_csv(path, [])
+        assert count_duplicates(path) == 0
 
 
 class TestDedupScript:

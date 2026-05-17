@@ -100,11 +100,13 @@ python scripts/build.py --model gemma4:e4b --levels n2 --output output/n2.csv
 python scripts/build.py --model gemma4:e4b --levels n1 --output output/n1.csv
 ```
 
-Concatenate when all are done:
+Concatenate when all are done, then deduplicate (words that appear in multiple level lists are common):
 
 ```bash
 head -1 output/n4.csv > output/jlpt_vocab.csv
 for f in output/n4.csv output/n3.csv output/n2.csv output/n1.csv; do tail -n +2 "$f"; done >> output/jlpt_vocab.csv
+
+python scripts/dedup_words.py --output output/jlpt_vocab.csv
 ```
 
 ---
@@ -228,6 +230,22 @@ The script:
 |---|---|
 | `--file` | Path to the input file (required) |
 | `--model` | Ollama model name (required) |
+
+---
+
+## Deduplicating a CSV
+
+When levels are processed separately and concatenated, the same word may appear more than once. To remove duplicates:
+
+```bash
+# Preview without making changes
+python scripts/dedup_words.py --output output/jlpt_vocab.csv --dry-run
+
+# Remove duplicates in place
+python scripts/dedup_words.py --output output/jlpt_vocab.csv
+```
+
+Rows are matched on **word + furigana** together, so words that share kanji but have different readings (e.g. 人 read as ひと vs にん) are treated as separate entries and both kept. When a true duplicate is found, the first occurrence is kept and subsequent ones are dropped.
 
 ---
 
