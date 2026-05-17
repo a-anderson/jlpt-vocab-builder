@@ -41,6 +41,7 @@ scripts/                    — CLI entry points (run with python scripts/<name>
   add_language.py           — retrofit a finished CSV with a new language
   add_words.py              — append arbitrary words to a CSV
   drop_words.py             — remove words from CSV and checkpoint
+  dedup_words.py            — remove duplicate rows from a concatenated CSV
   fix_furigana.py           — fix malformed bracket-notation furigana in a word file
 
 tests/
@@ -219,6 +220,10 @@ python scripts/build.py --model gemma4:e4b --output output/n4.csv --repair
 # Add a language to a finished CSV
 python scripts/add_language.py --language german --output output/n4.csv --model gemma4:e4b
 
+# Deduplicate a concatenated CSV (keeps first occurrence per word+furigana pair)
+python scripts/dedup_words.py --output output/jlpt_vocab.csv
+python scripts/dedup_words.py --output output/jlpt_vocab.csv --dry-run  # preview only
+
 # Add custom words outside the JLPT list
 python scripts/add_words.py 猫背 蹴る --model gemma4:e4b
 python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
@@ -240,11 +245,13 @@ python scripts/build.py --model gemma4:e4b --levels n2 --output output/n2.csv
 python scripts/build.py --model gemma4:e4b --levels n1 --output output/n1.csv
 ```
 
-After all finish, concatenate (use a loop — BSD tail on macOS adds separators with multiple files):
+After all finish, concatenate then deduplicate (use a loop — BSD tail on macOS adds separators with multiple files):
 
 ```bash
 head -1 output/n4.csv > output/jlpt_vocab.csv
 for f in output/n4.csv output/n3.csv output/n2.csv output/n1.csv; do tail -n +2 "$f"; done >> output/jlpt_vocab.csv
+
+python scripts/dedup_words.py --output output/jlpt_vocab.csv
 ```
 
 ## Running tests

@@ -30,15 +30,16 @@ def drop_from_csv(csv_path: Path, words: set[str]) -> set[str]:
 
 
 def dedup_csv(csv_path: Path) -> int:
-    """Keep first occurrence of each 単語; rewrite in-place. Returns duplicate row count."""
+    """Keep first occurrence of each (単語, 振り仮名) pair; rewrite in-place. Returns duplicate row count."""
     rows, seen = [], set()
     with open(csv_path, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames or []
         all_rows = list(reader)
     for row in all_rows:
-        if row['単語'] not in seen:
-            seen.add(row['単語'])
+        key = (row['単語'], row['振り仮名'])
+        if key not in seen:
+            seen.add(key)
             rows.append(row)
     removed = len(all_rows) - len(rows)
     if removed == 0:
@@ -51,15 +52,16 @@ def dedup_csv(csv_path: Path) -> int:
 
 
 def count_duplicates(csv_path: Path) -> int:
-    """Return the number of duplicate 単語 rows without modifying the file."""
-    seen: set[str] = set()
+    """Return the number of duplicate (単語, 振り仮名) rows without modifying the file."""
+    seen: set[tuple[str, str]] = set()
     count = 0
     with open(csv_path, newline='', encoding='utf-8') as f:
         for row in csv.DictReader(f):
-            if row['単語'] in seen:
+            key = (row['単語'], row['振り仮名'])
+            if key in seen:
                 count += 1
             else:
-                seen.add(row['単語'])
+                seen.add(key)
     return count
 
 
