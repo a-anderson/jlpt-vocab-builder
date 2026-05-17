@@ -4,7 +4,7 @@
 [![python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Builds a JLPT N4–N1 vocabulary CSV (~8,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and optional language glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
+Builds a JLPT N4–N1 vocabulary CSV (~6,000 words) suitable for import into Anki or any SRS tool. Each row contains the word, furigana, part of speech, pitch accent, English and optional language glosses, an example sentence with furigana markup, sentence translations, the surface form of the word as used in the sentence, and a reference to a pitch accent diagram SVG.
 
 ---
 
@@ -39,12 +39,12 @@ Furigana columns use HTML `<ruby>` tags. Enable **Allow HTML in fields** when im
 
 Data files are **downloaded automatically on first run** into the `data/` directory. Manual download locations (if you prefer to pre-populate):
 
-| File                              | Source                                                                                                                                                    |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data/jitendex-yomitan/`          | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder |
+| File                              | Source                                                                                                                                                      |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/jitendex-yomitan/`          | [Jitendex for Yomitan](https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip) — extract zip contents into folder   |
 | `data/JMdict_{lang}/`             | [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan/releases/latest) — only needed when passing `--languages`; extract zip contents into folder |
-| `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv)                                           |
-| `data/accents.txt`                | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt)                                 |
+| `data/nhk_data/ACCDB_unicode.csv` | [NHK pronunciation CSV](https://raw.githubusercontent.com/javdejong/nhk-pronunciation/master/ACCDB_unicode.csv)                                             |
+| `data/accents.txt`                | [Kanjium pitch accents](https://raw.githubusercontent.com/mifunetoshiro/kanjium/master/data/source_files/raw/accents.txt)                                   |
 
 ---
 
@@ -87,7 +87,7 @@ python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svg
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
 
-> **Note on speed:** Each word requires one or two Ollama calls (sentence generation, furigana, translations). Expect roughly 20 seconds per word on a modern laptop — around 45 hours for the full 8,000-word dataset. Parallel runs across four terminals cut this proportionally.
+> **Note on speed:** Each word requires one or two Ollama calls (sentence generation, furigana, translations). Expect roughly 20 seconds per word on a modern laptop — around 45 hours for the full 6,000-word dataset. Parallel runs across four terminals cut this proportionally.
 
 ### Parallel runs
 
@@ -137,17 +137,17 @@ python scripts/repair_pos.py --output output/n4.csv
 
 The script handles all combinations of missing fields in a single pass:
 
-| 品詞 empty | ピッチアクセント empty | Action |
-|---|---|---|
-| yes | yes | backfill both |
-| yes | no | backfill 品詞 and 英語訳 only |
-| no | yes | backfill pitch only |
-| no | no | skip |
+| 品詞 empty | ピッチアクセント empty | Action                        |
+| ---------- | ---------------------- | ----------------------------- |
+| yes        | yes                    | backfill both                 |
+| yes        | no                     | backfill 品詞 and 英語訳 only |
+| no         | yes                    | backfill pitch only           |
+| no         | no                     | skip                          |
 
 Words not found in Jitendex are left untouched.
 
-| Flag | Description |
-|---|---|
+| Flag       | Description                            |
+| ---------- | -------------------------------------- |
 | `--output` | CSV file to repair in place (required) |
 
 ---
@@ -219,6 +219,7 @@ python scripts/fix_furigana.py --file n5.csv --model gemma4:e4b
 ```
 
 The script:
+
 - Accepts any text or CSV file with one word per line
 - Skips blank lines and lines starting with `#`
 - Looks up the correct reading from the local Jitendex dictionary first, falling back to the reading already embedded in the broken notation
@@ -226,10 +227,10 @@ The script:
 - For ateji/irregular readings that can't be split per-kanji, brackets the whole compound (e.g. `今朝[けさ]`)
 - Writes fixes back to the same file; unfixable words are left unchanged and logged
 
-| Flag | Description |
-|---|---|
-| `--file` | Path to the input file (required) |
-| `--model` | Ollama model name (required) |
+| Flag      | Description                       |
+| --------- | --------------------------------- |
+| `--file`  | Path to the input file (required) |
+| `--model` | Ollama model name (required)      |
 
 ---
 
