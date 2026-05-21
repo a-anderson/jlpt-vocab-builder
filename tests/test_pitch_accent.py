@@ -187,6 +187,13 @@ class TestGetPitchAccent:
         result = get_pitch_accent('食べる', 'たべる')
         assert result['mora_count'] == len(split_mora('たべる'))
 
+    def test_reading_disambiguates_homograph(self):
+        # 橋 has two entries: きょう→1, はし→2. Must return the one matching the reading.
+        get_pitch_accent.cache_clear()
+        result = get_pitch_accent('橋', 'はし')
+        assert result['pattern'] == 2
+        assert result['source'] == 'kanjium'
+
 
 @pytest.mark.skipif(not _PITCH_DATA_AVAILABLE, reason='pitch accent data not downloaded — run the pipeline first')
 class TestGetPitchColumns:

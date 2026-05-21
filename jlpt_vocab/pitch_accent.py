@@ -14,7 +14,7 @@ OJAD_URL = 'https://www.ojad.jp/api/v0/words'
 OJAD_DELAY = 1.5
 
 # not thread-safe; this tool is single-process only
-_kanjium_index: dict[str, int] | None = None
+_kanjium_index: dict[str | tuple[str, str], int] | None = None
 _nhk_index: dict[str, int] | None = None
 
 
@@ -45,9 +45,9 @@ def split_mora(reading: str) -> list[str]:
 # Kanjium (primary, local)
 # ---------------------------------------------------------------------------
 
-def _load_kanjium_index() -> dict[str, int]:
-    """Parse accents.txt into expression/reading → first pitch pattern."""
-    index: dict[str, int] = {}
+def _load_kanjium_index() -> dict[str | tuple[str, str], int]:
+    """Parse accents.txt into (expression, reading) → pitch pattern, with expression/reading fallbacks."""
+    index: dict[str | tuple[str, str], int] = {}
     with open(KANJIUM_LOCAL, encoding='utf-8') as f:
         for line in f:
             parts = line.rstrip('\n').split('\t')
@@ -58,7 +58,10 @@ def _load_kanjium_index() -> dict[str, int]:
                 pattern = int(pattern_str.split(',')[0].strip())
             except ValueError:
                 continue
-            # Keep only the first entry per key (most common)
+            composite = (expression, reading)
+            if composite not in index:
+                index[composite] = pattern
+            # Keep only the first entry per expression/reading key (most common)
             if expression not in index:
                 index[expression] = pattern
             if reading and reading not in index:
@@ -66,7 +69,7 @@ def _load_kanjium_index() -> dict[str, int]:
     return index
 
 
-def _get_kanjium_index() -> dict[str, int]:
+def _get_kanjium_index() -> dict[str | tuple[str, str], int]:
     global _kanjium_index
     if _kanjium_index is None:
         _kanjium_index = _load_kanjium_index()
@@ -75,7 +78,8 @@ def _get_kanjium_index() -> dict[str, int]:
 
 def _fetch_kanjium(word: str, reading: str, mora_count: int) -> dict:
     index = _get_kanjium_index()
-    for key in (word, reading):
+    # Prefer exact (expression, reading) match; fall back to reading-only then expression-only
+    for key in ((word, reading), reading, word):
         if key and key in index:
             return {'pattern': index[key], 'mora_count': mora_count, 'source': 'kanjium'}
     return {'pattern': None, 'mora_count': mora_count, 'source': 'kanjium'}
