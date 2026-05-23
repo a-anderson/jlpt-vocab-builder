@@ -37,7 +37,7 @@ def existing_csv(tmp_path):
 
 def _mock_ollama(word, model, en_gloss, pos, need_sentence, **kwargs):
     langs = kwargs.get('langs', [])
-    result = {'例文振り仮名': '', '日本語ターゲット': ''}
+    result = {'日本語ターゲット': ''}
     for lang in langs:
         abbrev = LANGUAGES[lang][0]
         result[f'{abbrev}語例文'] = f'(mock {lang} translation)'
@@ -51,7 +51,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ollama_generate_content', side_effect=_mock_ollama),
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -66,7 +66,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ollama_generate_content', side_effect=_mock_ollama),
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -88,7 +88,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={'食べる': 'manger', '飲む': 'boire'}),
-            patch('scripts.add_language.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ollama_generate_content') as mock_gen,
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(path, 'spanish', 'gemma4:e4b')
@@ -99,7 +99,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_language.ollama_generate_content', side_effect=_mock_ollama) as mock_gen,
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -118,7 +118,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama) as mock_gen,
+            patch('scripts.add_language.ollama_generate_content', side_effect=_mock_ollama) as mock_gen,
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -134,7 +134,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ollama_generate_content') as mock_gen,
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -155,7 +155,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate') as mock_gen,
+            patch('scripts.add_language.ollama_generate_content') as mock_gen,
         ):
             from scripts.add_language import add_language_columns
             add_language_columns(existing_csv, 'spanish', 'gemma4:e4b')
@@ -174,7 +174,7 @@ class TestAddLanguageColumns:
         with (
             patch('scripts.add_language.ensure_jmdict'),
             patch('scripts.add_language.build_jmdict_index', return_value={}),
-            patch('scripts.add_language.ollama_generate', side_effect=_mock_ollama),
+            patch('scripts.add_language.ollama_generate_content', side_effect=_mock_ollama),
             patch.object(Path, 'replace', capture_replace),
         ):
             from scripts.add_language import add_language_columns

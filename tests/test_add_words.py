@@ -20,8 +20,7 @@ def _write_csv(path, rows, columns):
 def _mock_ollama(*args, **kwargs):
     langs = kwargs.get('langs', [])
     result = {
-        '例文': '今日は食べる。', '例文振り仮名': '今日は食べる。',
-        '英語例文': 'I eat today.', '日本語ターゲット': '食べる',
+        '例文': '今日は食べる。', '英語例文': 'I eat today.', '日本語ターゲット': '食べる',
     }
     for lang in langs:
         abbrev = LANGUAGES[lang][0]
@@ -30,7 +29,8 @@ def _mock_ollama(*args, **kwargs):
     return result
 
 
-_OLLAMA_PATCH = 'jlpt_vocab.pipeline.ollama_generate'
+_OLLAMA_PATCH = 'jlpt_vocab.pipeline.ollama_generate_content'
+_SENT_FURI_PATCH = 'jlpt_vocab.pipeline.ollama_generate_sentence_furigana'
 
 
 class TestAddWordsArgparse:
@@ -54,6 +54,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -71,6 +72,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -90,6 +92,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -128,6 +131,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama) as mock_gen,
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -145,6 +149,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama) as mock_gen,
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -161,6 +166,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>食<rt>た</rt></ruby>べる'),
         ):
@@ -181,6 +187,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
         ):
             from scripts.add_words import add_words
@@ -198,6 +205,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>食<rt>た</rt></ruby>べる') as mock_furi,
         ):
@@ -214,6 +222,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
         ):
             from scripts.add_words import add_words
@@ -232,6 +241,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -251,6 +261,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -271,6 +282,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -288,6 +300,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
@@ -338,6 +351,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '0', 'ピッチアクセント図': '3_0.svg'}),
             patch('scripts.add_words.ollama_generate_furigana', return_value='<ruby>浴<rt>あ</rt></ruby>びる'),
         ):
@@ -355,6 +369,7 @@ class TestAddWords:
             patch('scripts.add_words.build_jitendex_index', return_value={}),
             patch('scripts.add_words.build_jmdict_index', return_value={}),
             patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
             patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
             patch('scripts.add_words.ollama_generate_furigana', return_value=''),
         ):
