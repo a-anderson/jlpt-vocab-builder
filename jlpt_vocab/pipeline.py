@@ -147,7 +147,7 @@ def _parse_json(raw: str) -> dict:
         raise
 
 
-def ollama_generate(
+def ollama_generate_content(
     word: str,
     model: str,
     en_gloss: str,
@@ -158,7 +158,7 @@ def ollama_generate(
     langs: list[str] | None = None,
     need_gloss_for: list[str] | None = None,
 ) -> dict:
-    """Call Ollama to generate or complete sentence data for a word."""
+    """Call Ollama to generate sentence content (no furigana) for a word."""
     if ollama_client is None:
         return _empty_ollama(langs)
 
@@ -181,19 +181,16 @@ Target word: {word}
 Part of speech: {pos}
 English meaning: {en_gloss}
 
-Write ONE example sentence that:
-- Uses {word} naturally in a way that clearly illustrates its meaning and typical usage
-- Is appropriately complex for a learner studying this word
+Write ONE example sentence in plain Japanese that:
+- Uses {word} naturally in a way that clearly illustrates its meaning
+- Is as short as the word allows — use the fewest words needed; only add clauses when the word grammatically requires them
+- Sounds like something a native speaker would say in everyday conversation
 
-Rules for 例文振り仮名:
-- Reproduce the sentence exactly, adding <ruby>kanji<rt>reading</rt></ruby> tags
-- Add furigana ONLY on kanji — never on hiragana, katakana, or punctuation
-- Do NOT wrap katakana words in ruby tags
+The sentence must be plain Japanese text only — no HTML, no tags, no markup of any kind.
 
 Respond ONLY with a JSON object, no markdown, no explanation:
 {{
-  "例文": "<sentence in natural Japanese>",
-  "例文振り仮名": "<sentence with ruby tags on kanji only>",
+  "例文": "<plain Japanese sentence, no HTML>",
   "英語例文": "<natural English translation>",
 {sentence_lang_lines}{gloss_lines}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
 }}"""
@@ -209,27 +206,54 @@ Part of speech: {pos}
 Japanese sentence: {existing_jp}
 English translation: {existing_en}
 
-Rules for 例文振り仮名:
-- Reproduce the sentence exactly, adding <ruby>kanji<rt>reading</rt></ruby> tags
-- Add furigana ONLY on kanji — never on hiragana, katakana, or punctuation
-- Do NOT wrap katakana words in ruby tags
-
 Respond ONLY with a JSON object, no markdown, no explanation:
 {{
-  "例文振り仮名": "<sentence with ruby tags on kanji only>",
 {sentence_lang_lines}{gloss_lines}  "日本語ターゲット": "<surface form of {word} as it appears in the sentence>"
 }}"""
 
     for _ in range(2):
         try:
-            result = _parse_json(_ollama_chat(model, prompt))
-            if result.get('例文振り仮名'):
-                result['例文振り仮名'] = normalise_furigana(result['例文振り仮名'])
-            return result
+            return _parse_json(_ollama_chat(model, prompt))
         except Exception as e:
             last_error = e
     print(f'  [Ollama error for {word}]: {last_error}')
     return _empty_ollama(langs)
+
+
+def ollama_generate_sentence_furigana(sentence: str, model: str) -> str:
+    """Ask Ollama to add ruby furigana to a plain Japanese sentence."""
+    if ollama_client is None:
+        return ''
+    prompt = f"""Add furigana to this Japanese sentence using HTML ruby tags.
+
+Sentence: {sentence}
+
+Rules:
+- Reproduce the sentence exactly — do not change any words or punctuation
+- Group compound kanji words as a single ruby block: <ruby>勉強<rt>べんきょう</rt></ruby>する
+- Never add ruby tags to hiragana, katakana, or punctuation
+- Katakana words must appear as plain text with no tags
+
+Examples:
+Input:  毎日学校に行く。
+Output: <ruby>毎日<rt>まいにち</rt></ruby><ruby>学校<rt>がっこう</rt></ruby>に<ruby>行<rt>い</rt></ruby>く。
+
+Input:  彼女はとても親切な人だ。
+Output: <ruby>彼女<rt>かのじょ</rt></ruby>はとても<ruby>親切<rt>しんせつ</rt></ruby>な<ruby>人<rt>ひと</rt></ruby>だ。
+
+Input:  テストがある。
+Output: テストがある。
+
+Respond with ONLY the tagged sentence, nothing else."""
+    for _ in range(2):
+        try:
+            raw = _ollama_chat(model, prompt).strip()
+            raw = re.sub(r'^```[a-z]*\s*', '', raw, flags=re.MULTILINE).strip('`').strip()
+            return normalise_furigana(raw)
+        except Exception as e:
+            last_error = e
+    print(f'  [furigana error for "{sentence[:20]}"]: {last_error}')
+    return ''
 
 
 def ollama_generate_furigana(word: str, reading: str, model: str) -> str:
@@ -248,6 +272,7 @@ Respond with ONLY the bracket-notation string, nothing else."""
     for _ in range(2):
         try:
             raw = _ollama_chat(model, prompt).strip()
+            raw = re.sub(r'^```[a-z]*\s*', '', raw, flags=re.MULTILINE).strip('`').strip()
             return bracket_to_ruby(raw)
         except Exception:
             pass
@@ -255,7 +280,7 @@ Respond with ONLY the bracket-notation string, nothing else."""
 
 
 def _empty_ollama(langs: list[str] | None = None) -> dict:
-    base = {'例文': '', '英語例文': '', '例文振り仮名': '', '日本語ターゲット': ''}
+    base = {'例文': '', '英語例文': '', '日本語ターゲット': ''}
     for lang in (langs or []):
         abbrev = LANGUAGES[lang][0]
         base[f'{abbrev}語訳'] = ''
@@ -304,17 +329,21 @@ def process_word(
         if not gloss and 英語訳:
             need_gloss_for.append(lang)
 
-    if 例文:
-        ollama_data = ollama_generate(
+    if 例文 and langs:
+        ollama_data = ollama_generate_content(
             word, model, 英語訳, 品詞,
             need_sentence=False, existing_jp=例文, existing_en=英語例文,
             langs=langs, need_gloss_for=need_gloss_for,
         )
+    elif 例文:
+        ollama_data = {}
     else:
-        ollama_data = ollama_generate(
+        ollama_data = ollama_generate_content(
             word, model, 英語訳, 品詞,
             need_sentence=True, langs=langs, need_gloss_for=need_gloss_for,
         )
+        例文 = ollama_data.get('例文', '')
+        英語例文 = ollama_data.get('英語例文', '')
 
     for lang in need_gloss_for:
         abbrev = LANGUAGES[lang][0]
@@ -325,12 +354,8 @@ def process_word(
         for l in langs
     }
 
-    if not 例文:
-        例文 = ollama_data.get('例文', '')
-        英語例文 = ollama_data.get('英語例文', '')
-        例文振り仮名 = ollama_data.get('例文振り仮名', '')
-    elif not 例文振り仮名:
-        例文振り仮名 = ollama_data.get('例文振り仮名', '')
+    if not 例文振り仮名 and 例文:
+        例文振り仮名 = ollama_generate_sentence_furigana(例文, model)
 
     日本語ターゲット = ollama_data.get('日本語ターゲット', '') or extract_target(lookup_forms[0], 例文)
 

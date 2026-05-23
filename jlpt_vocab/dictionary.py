@@ -111,6 +111,22 @@ def _ruby_html(node) -> str:
     return _ruby_html(content)
 
 
+def _find_all_examples(node) -> list[tuple[str, str, str]]:
+    """Return all (jp_plain, en, jp_furigana) tuples from example-sentence nodes in the tree."""
+    results = []
+    if isinstance(node, list):
+        for n in node:
+            results.extend(_find_all_examples(n))
+    elif isinstance(node, dict):
+        if node.get('data', {}).get('content') == 'example-sentence':
+            r = _find_example(node)
+            if r:
+                results.append(r)
+        else:
+            results.extend(_find_all_examples(node.get('content', [])))
+    return results
+
+
 def _find_example(node) -> tuple[str, str, str] | None:
     """Return (jp_plain, en, jp_furigana) from the first example-sentence node, or None."""
     if isinstance(node, list):
@@ -186,7 +202,8 @@ def build_jitendex_index(directory: Path) -> dict[str, dict]:
                 continue
 
             pos_codes = _find_pos_codes(definitions)
-            example = _find_example(definitions)
+            examples = _find_all_examples(definitions)
+            example = min(examples, key=lambda e: len(e[0])) if examples else None
 
             index[term] = {
                 '品詞': _codes_to_hinshi(pos_codes),

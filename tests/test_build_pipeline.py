@@ -8,7 +8,7 @@ import csv as _csv
 
 from jlpt_vocab.pipeline import (
     word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
-    make_csv_columns, ollama_generate_furigana,
+    make_csv_columns, ollama_generate_furigana, ollama_generate_sentence_furigana,
     find_repair_candidates, detect_csv_languages,
 )
 from tests.conftest import requires_unidic
@@ -116,14 +116,14 @@ class TestTsField:
 class TestEmptyOllama:
     def test_contains_base_keys_only_when_no_langs(self):
         result = _empty_ollama()
-        assert set(result.keys()) == {'例文', '英語例文', '例文振り仮名', '日本語ターゲット'}
+        assert set(result.keys()) == {'例文', '英語例文', '日本語ターゲット'}
 
     def test_all_values_are_empty_strings(self):
         assert all(v == '' for v in _empty_ollama().values())
 
     def test_empty_ollama_no_langs(self):
         result = _empty_ollama()
-        assert set(result.keys()) == {'例文', '英語例文', '例文振り仮名', '日本語ターゲット'}
+        assert set(result.keys()) == {'例文', '英語例文', '日本語ターゲット'}
 
     def test_empty_ollama_includes_all_lang_keys(self):
         result = _empty_ollama(['french', 'spanish'])
@@ -132,6 +132,11 @@ class TestEmptyOllama:
         assert '仏語訳' in result
         assert '西語訳' in result
         assert '例文' in result
+
+    def test_empty_ollama_does_not_contain_furigana(self):
+        # furigana is now a separate call; content call never returns it
+        assert '例文振り仮名' not in _empty_ollama()
+        assert '例文振り仮名' not in _empty_ollama(['french'])
 
 
 class TestMakeCsvColumns:
@@ -179,6 +184,11 @@ class TestOllamaGenerateFurigana:
             result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
         assert result == '<ruby>食<rt>た</rt></ruby>べる'
 
+    def test_strips_markdown_fences(self):
+        with patch('jlpt_vocab.pipeline._ollama_chat', return_value='```\n食[た]べる\n```'):
+            result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
+        assert result == '<ruby>食<rt>た</rt></ruby>べる'
+
     def test_returns_empty_on_failure(self):
         with patch('jlpt_vocab.pipeline._ollama_chat', side_effect=Exception('fail')):
             result = ollama_generate_furigana('食べる', 'たべる', 'gemma4:e4b')
@@ -194,6 +204,78 @@ class TestOllamaGenerateFurigana:
             assert result == ''
         finally:
             pipeline.ollama_client = original
+
+
+class TestOllamaGenerateSentenceFurigana:
+    def test_returns_ruby_html(self):
+        with patch('jlpt_vocab.pipeline._ollama_chat',
+                   return_value='<ruby>食<rt>た</rt></ruby>べる。'):
+            result = ollama_generate_sentence_furigana('食べる。', 'gemma4:e4b')
+        assert '<ruby>食<rt>た</rt></ruby>' in result
+
+    def test_normalises_paren_notation(self):
+        # normalise_furigana converts 漢字(かな) → ruby
+        with patch('jlpt_vocab.pipeline._ollama_chat',
+                   return_value='勉強(べんきょう)する。'):
+            result = ollama_generate_sentence_furigana('勉強する。', 'gemma4:e4b')
+        assert '<ruby>勉強<rt>べんきょう</rt></ruby>' in result
+
+    def test_strips_markdown_fences(self):
+        fenced = '```html\n<ruby>食<rt>た</rt></ruby>べる。\n```'
+        with patch('jlpt_vocab.pipeline._ollama_chat', return_value=fenced):
+            result = ollama_generate_sentence_furigana('食べる。', 'gemma4:e4b')
+        assert result.startswith('<ruby>')
+        assert '`' not in result
+
+    def test_logs_error_on_failure(self, capsys):
+        with patch('jlpt_vocab.pipeline._ollama_chat', side_effect=Exception('timeout')):
+            result = ollama_generate_sentence_furigana('食べる。', 'gemma4:e4b')
+        assert result == ''
+        assert 'furigana error' in capsys.readouterr().out
+
+    def test_returns_empty_when_no_client(self):
+        original = pipeline.ollama_client
+        try:
+            pipeline.ollama_client = None
+            with patch('jlpt_vocab.pipeline._ollama_chat') as mock_chat:
+                result = ollama_generate_sentence_furigana('食べる。', 'gemma4:e4b')
+            mock_chat.assert_not_called()
+            assert result == ''
+        finally:
+            pipeline.ollama_client = original
+
+
+class TestProcessWordOllamaSkip:
+    def test_no_ollama_call_when_sentence_exists_and_no_langs(self):
+        """process_word must not call ollama_generate_content when it has a Jitendex
+        sentence and there are no extra languages or missing glosses — extract_target
+        handles 日本語ターゲット for free."""
+        jitendex = {'食べる': {
+            '品詞': '一段動詞', '英語訳': 'to eat', '読み': 'たべる',
+            '例文': 'りんごを食べる。', '英語例文': 'Eat an apple.',
+            '例文振り仮名': '<ruby>食<rt>た</rt></ruby>べる。',
+        }}
+        with patch('jlpt_vocab.pipeline.ollama_generate_content') as mock_content, \
+             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana') as mock_furi:
+            from jlpt_vocab.pipeline import process_word
+            process_word('食べる', 'gemma4:e4b', jitendex, {}, [])
+        mock_content.assert_not_called()
+        mock_furi.assert_not_called()
+
+    def test_ollama_called_when_sentence_exists_and_langs_needed(self):
+        """process_word must call ollama_generate_content when extra languages are requested."""
+        jitendex = {'食べる': {
+            '品詞': '一段動詞', '英語訳': 'to eat', '読み': 'たべる',
+            '例文': 'りんごを食べる。', '英語例文': 'Eat an apple.',
+            '例文振り仮名': '<ruby>食<rt>た</rt></ruby>べる。',
+        }}
+        lang_indexes = {'french': {'食べる': 'manger'}}
+        with patch('jlpt_vocab.pipeline.ollama_generate_content',
+                   return_value={'仏語例文': '...', '日本語ターゲット': '食べ'}) as mock_content, \
+             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana', return_value=''):
+            from jlpt_vocab.pipeline import process_word
+            process_word('食べる', 'gemma4:e4b', jitendex, lang_indexes, ['french'])
+        mock_content.assert_called_once()
 
 
 def _write_csv(path, rows, columns):

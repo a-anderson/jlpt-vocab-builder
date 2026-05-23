@@ -5,7 +5,7 @@ fast and offline. Integration tests read the local data files.
 """
 
 import pytest
-from jlpt_vocab.dictionary import _codes_to_hinshi, _find_pos_codes, _find_glosses, _ruby_html
+from jlpt_vocab.dictionary import _codes_to_hinshi, _find_pos_codes, _find_glosses, _ruby_html, _find_all_examples
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +168,57 @@ class TestFindExample:
         assert result is not None
         assert '<ruby>' not in result[0]
         assert '<rt>' not in result[0]
+
+
+def _make_example_node(jp, en):
+    """Build a minimal Jitendex example-sentence node for testing."""
+    return {
+        'tag': 'div', 'data': {'content': 'example-sentence'},
+        'content': [
+            {'tag': 'div', 'data': {'content': 'example-sentence-a'},
+             'content': {'tag': 'span', 'lang': 'ja', 'content': jp}},
+            {'tag': 'div', 'data': {'content': 'example-sentence-b'},
+             'content': [{'tag': 'span', 'lang': 'en', 'content': en}]},
+        ],
+    }
+
+
+class TestFindAllExamples:
+    def test_single_example_returns_one_result(self, sample_example_node):
+        results = _find_all_examples(sample_example_node)
+        assert len(results) == 1
+        assert results[0][0] == 'もっと果物を食べるべきです。'
+
+    def test_multiple_examples_returns_all(self):
+        node = [
+            _make_example_node('長い文章がたくさんあります。', 'There is a long sentence.'),
+            _make_example_node('短い文。', 'Short.'),
+        ]
+        results = _find_all_examples(node)
+        assert len(results) == 2
+
+    def test_empty_tree_returns_empty_list(self):
+        assert _find_all_examples([]) == []
+        assert _find_all_examples({'tag': 'div', 'content': []}) == []
+
+    def test_build_jitendex_index_picks_shortest(self, tmp_path):
+        """When an entry has multiple example sentences, the shortest is chosen."""
+        import json
+        from jlpt_vocab.dictionary import build_jitendex_index
+
+        glossary = {'tag': 'ul', 'data': {'content': 'glossary'}, 'content': [
+            {'tag': 'li', 'content': 'to eat'},
+        ]}
+        bank = [[
+            '食べる', 'たべる', '★ priority form', '', 100,
+            [glossary,
+             _make_example_node('毎日たくさんの果物と野菜を食べる。', 'Eat lots of fruit and vegetables every day.'),
+             _make_example_node('りんごを食べる。', 'Eat an apple.')],
+            1, '',
+        ]]
+        (tmp_path / 'term_bank_1.json').write_text(json.dumps(bank), encoding='utf-8')
+        idx = build_jitendex_index(tmp_path)
+        assert idx['食べる']['例文'] == 'りんごを食べる。'
 
 
 # ---------------------------------------------------------------------------

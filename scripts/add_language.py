@@ -10,7 +10,7 @@ from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint
 from jlpt_vocab.dictionary import build_jmdict_index
 from jlpt_vocab.download import ensure_jmdict, DATA_DIR
 from jlpt_vocab.normalise import normalise_word
-from jlpt_vocab.pipeline import LANGUAGES, ollama_generate
+from jlpt_vocab.pipeline import LANGUAGES, ollama_generate_content
 
 
 def add_language_columns(csv_path: Path, lang: str, model: str) -> None:
@@ -65,7 +65,7 @@ def add_language_columns(csv_path: Path, lang: str, model: str) -> None:
 
             example_translation = ''
             if row.get('例文'):
-                ollama_data = ollama_generate(
+                ollama_data = ollama_generate_content(
                     word=word, model=model,
                     en_gloss=row.get('英語訳', ''), pos=row.get('品詞', ''),
                     need_sentence=False,
