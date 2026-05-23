@@ -256,7 +256,8 @@ class TestProcessWordOllamaSkip:
             '例文振り仮名': '<ruby>食<rt>た</rt></ruby>べる。',
         }}
         with patch('jlpt_vocab.pipeline.ollama_generate_content') as mock_content, \
-             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana') as mock_furi:
+             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana') as mock_furi, \
+             patch('jlpt_vocab.pipeline.word_in_sentence', return_value=True):
             from jlpt_vocab.pipeline import process_word
             process_word('食べる', 'gemma4:e4b', jitendex, {}, [])
         mock_content.assert_not_called()
@@ -272,7 +273,8 @@ class TestProcessWordOllamaSkip:
         lang_indexes = {'french': {'食べる': 'manger'}}
         with patch('jlpt_vocab.pipeline.ollama_generate_content',
                    return_value={'仏語例文': '...', '日本語ターゲット': '食べ'}) as mock_content, \
-             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana', return_value=''):
+             patch('jlpt_vocab.pipeline.ollama_generate_sentence_furigana', return_value=''), \
+             patch('jlpt_vocab.pipeline.word_in_sentence', return_value=True):
             from jlpt_vocab.pipeline import process_word
             process_word('食べる', 'gemma4:e4b', jitendex, lang_indexes, ['french'])
         mock_content.assert_called_once()
