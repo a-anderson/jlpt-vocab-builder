@@ -34,6 +34,16 @@ _POS_MAP = [
     ('pref', '接頭語'),
 ]
 
+_POS_LOOKUP = {code: hinshi for code, hinshi in _POS_MAP}
+
+# vs = "noun or participle which takes suru" — when present, the word is primarily
+# a nominal. Use Jitendex document order to pick the nominal POS rather than letting
+# verb tags win via the priority list.
+_VERB_CODES = frozenset({
+    'vt', 'vi', 'v1', 'v5u', 'v5k', 'v5k-s', 'v5g', 'v5s', 'v5t',
+    'v5n', 'v5b', 'v5m', 'v5r', 'vk', 'vs-i',
+})
+
 _SKIP_CONTENT = frozenset({
     'extra-info', 'attribution', 'xref', 'xref-content', 'xref-glossary',
     'info-gloss', 'refGlosses', 'references', 'notes', 'formsTable',
@@ -164,6 +174,10 @@ def _find_example(node) -> tuple[str, str, str] | None:
 
 def _codes_to_hinshi(codes: list[str]) -> str:
     code_set = set(codes)
+    if 'vs' in code_set:
+        for code in codes:
+            if code in _POS_LOOKUP and code not in _VERB_CODES:
+                return _POS_LOOKUP[code]
     for code, hinshi in _POS_MAP:
         if code in code_set:
             return hinshi

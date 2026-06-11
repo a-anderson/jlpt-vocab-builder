@@ -53,9 +53,28 @@ class TestCodesToHinshi:
     def test_unknown_code(self):
         assert _codes_to_hinshi(['xyz']) == ''
 
-    def test_priority_order_v1_over_n(self):
-        # v1 appears before n in the priority map
+    def test_priority_order_v1_over_n_without_vs(self):
+        # without vs, the priority map still applies
         assert _codes_to_hinshi(['n', 'v1']) == '一段動詞'
+
+    def test_verbal_noun_n_vs_vi_returns_noun(self):
+        # vs signals a verbal noun — n wins over vi
+        assert _codes_to_hinshi(['n', 'vs', 'vi']) == '名詞'
+
+    def test_verbal_noun_n_vs_vt_returns_noun(self):
+        assert _codes_to_hinshi(['n', 'vs', 'vt']) == '名詞'
+
+    def test_verbal_noun_adj_na_first_returns_na_adjective(self):
+        # adj-na appears before n in Jitendex order → な形容詞
+        assert _codes_to_hinshi(['adj-na', 'n', 'vs', 'vi']) == 'な形容詞'
+
+    def test_verbal_noun_n_before_adj_na_returns_noun(self):
+        # n appears before adj-na in Jitendex order → 名詞
+        assert _codes_to_hinshi(['n', 'adj-na', 'vs', 'vi']) == '名詞'
+
+    def test_vs_adverb_returns_adverb(self):
+        # adverbs that take suru (e.g. あっさり) should remain 副詞
+        assert _codes_to_hinshi(['adv', 'vs']) == '副詞'
 
     def test_v5k_s_before_v5k(self):
         # v5k-s must be checked before v5k to avoid substring collision
@@ -262,6 +281,11 @@ class TestJitendexIndex:
     def test_na_adjective_pos(self, jitendex_index):
         assert '静か' in jitendex_index
         assert jitendex_index['静か']['品詞'] == 'な形容詞'
+
+    def test_verbal_noun_pos(self, jitendex_index):
+        # 挨拶 is n+vs+vi in Jitendex — should be 名詞, not 自動詞
+        assert '挨拶' in jitendex_index
+        assert jitendex_index['挨拶']['品詞'] == '名詞'
 
     def test_index_size_reasonable(self, jitendex_index):
         assert len(jitendex_index) > 10_000
