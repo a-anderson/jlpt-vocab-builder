@@ -50,6 +50,45 @@ def make_csv_columns(langs: list[str]) -> list[str]:
     return cols
 
 
+def get_particle(pos: str) -> str:
+    """Return the pitch-accent citation particle for a given 品詞 value."""
+    if pos in {"名詞", "な形容詞", "の形容詞", "代名詞"}:
+        return "が"
+    if "動詞" in pos or pos == "い形容詞":
+        return "よ"
+    return ""
+
+
+def apply_particles(rows: list[dict]) -> tuple[int, int, int]:
+    """Append citation-form particles to 単語 and 振り仮名 in place. Returns (updated, skipped, unchanged)."""
+    updated = skipped = unchanged = 0
+    for row in rows:
+        particle = get_particle(row.get('品詞', ''))
+        if not particle:
+            unchanged += 1
+            continue
+        if row['単語'].endswith(particle):
+            skipped += 1
+            continue
+        row['単語'] += particle
+        row['振り仮名'] += particle
+        updated += 1
+    return updated, skipped, unchanged
+
+
+def csv_has_particles(path: Path) -> bool:
+    """Return True if the majority of particle-eligible rows already have particles."""
+    if not path.exists():
+        return False
+    with open(path, newline='', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    eligible = [(r['単語'], get_particle(r.get('品詞', ''))) for r in rows if r.get('品詞')]
+    eligible = [(w, p) for w, p in eligible if p]
+    if not eligible:
+        return False
+    return sum(1 for w, p in eligible if w.endswith(p)) / len(eligible) > 0.5
+
+
 # ---------------------------------------------------------------------------
 # Stage 1: Word list
 # ---------------------------------------------------------------------------

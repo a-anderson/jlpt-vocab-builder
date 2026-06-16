@@ -78,6 +78,9 @@ python scripts/build.py --model gemma4:e4b --levels n4 n3
 # Resume after interruption (languages auto-detected from the existing CSV)
 python scripts/build.py --model gemma4:e4b --resume
 
+# Append pitch-accent citation particles (が/よ) to 単語 and 振り仮名
+python scripts/build.py --model gemma4:e4b --particles
+
 # Generate pitch accent SVGs (run once after CSV is complete)
 python scripts/generate_svgs.py
 
@@ -189,6 +192,9 @@ python scripts/add_words.py 猫背 --output output/custom_words.csv --model gemm
 
 # Resume after an interruption
 python scripts/add_words.py --file my_words.txt --model gemma4:e4b --resume
+
+# Append pitch-accent citation particles to all words (including existing rows)
+python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b --particles
 ```
 
 The script checkpoints after every word, so `--resume` picks up exactly where it left off. To reprocess a specific word, remove it first with `drop_words.py` then re-run.
@@ -262,14 +268,36 @@ Then re-run with `--resume` to regenerate just those rows.
 
 ---
 
+## Append pitch-accent citation particles
+
+For pitch accent practice, it helps to hear each word followed by its citation-form particle (が for nouns and adjectives, よ for verbs and i-adjectives) so the pitch contour of the full phrase is audible. Run this after building and deduplicating the CSV:
+
+```bash
+# Preview changes without writing
+python scripts/add_particle.py --input output/jlpt_vocab.csv --dry-run
+
+# Update in place
+python scripts/add_particle.py --input output/jlpt_vocab.csv
+
+# Write to a new file, leaving the original untouched
+python scripts/add_particle.py --input output/jlpt_vocab.csv --output output/jlpt_vocab_particle.csv
+```
+
+The script appends the particle to both the `単語` and `振り仮名` columns. Words that already have the correct particle are skipped, so re-running is safe. Parts of speech with no citation particle (adverbs, conjunctions, expressions, etc.) are left unchanged.
+
+When overwriting the input file, a backup is written to `<filename>.bak` (e.g. `output/jlpt_vocab.bak`) before any changes are made.
+
+---
+
 ## Anki integration
 
-1. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
-2. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
+1. Optionally run `add_particle.py` first (see above) if you use a TTS app to generate word audio — the particle is needed for the pitch contour to be audible.
+2. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
+3. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
     - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
     - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`
     - Windows: copy to `%APPDATA%\Anki2\<profile>\collection.media\`
-3. Reference the columns in your card template:
+4. Reference the columns in your card template:
 
 ```html
 {{振り仮名}}
@@ -283,7 +311,13 @@ If you included extra languages, add their columns as needed, e.g. `{{仏語訳}
 
 ## Adding TTS audio to your Anki deck
 
-To add text-to-speech audio for the vocabulary and example sentences in your deck, see [Anki-TTS-Automation](https://github.com/a-anderson/Anki-TTS-Automation).
+Before generating audio, run `add_particle.py` (or build with `--particles`) so TTS captures the full pitch contour including the citation-form particle:
+
+```bash
+python scripts/add_particle.py --input output/jlpt_vocab.csv
+```
+
+Then see [Anki-TTS-Automation](https://github.com/a-anderson/Anki-TTS-Automation) to generate and attach audio files.
 
 ---
 

@@ -44,6 +44,11 @@ class TestAddWordsArgparse:
         args = _make_parser().parse_args(['猫背', '--model', 'gemma4:e4b', '--languages', 'french'])
         assert args.languages == ['french']
 
+    def test_particles_flag_defaults_false(self):
+        from scripts.add_words import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b', '猫背'])
+        assert args.particles is False
+
 
 class TestAddWords:
     def test_writes_custom_level(self, tmp_path, monkeypatch):
@@ -361,6 +366,49 @@ class TestAddWords:
         assert rows[0]['単語'] == '浴びる'
         assert rows[0]['振り仮名'] == '<ruby>浴<rt>あ</rt></ruby>びる'
         assert rows[0]['品詞'] == '一段動詞'
+
+    def test_particles_appended_to_new_words(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        jitendex = {'猫背': {'品詞': '名詞', '英語訳': 'stoop', '読み': 'ねこぜ', '例文': '', '英語例文': '', '例文振り仮名': ''}}
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+        ):
+            from scripts.add_words import add_words
+            add_words(['猫背'], output, 'gemma4:e4b', [], particles=True)
+        rows = list(csv.DictReader(open(output, encoding='utf-8')))
+        assert rows[0]['単語'] == '猫背が'
+        assert rows[0]['振り仮名'].endswith('が')
+
+    def test_particles_applied_to_existing_rows_on_append(self, tmp_path, monkeypatch):
+        # When appending to a CSV that has existing rows without particles, --particles
+        # must update the whole file — not just the newly added words.
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        cols = make_csv_columns([])
+        _write_csv(output, [
+            {c: '' for c in cols} | {'単語': '犬', '振り仮名': 'いぬ', '品詞': '名詞'},
+        ], cols)
+        jitendex = {'猫': {'品詞': '名詞', '英語訳': 'cat', '読み': 'ねこ', '例文': '', '英語例文': '', '例文振り仮名': ''}}
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}),
+            patch('scripts.add_words.ollama_generate_furigana', return_value=''),
+        ):
+            from scripts.add_words import add_words
+            add_words(['猫'], output, 'gemma4:e4b', [], particles=True)
+        rows = list(csv.DictReader(open(output, encoding='utf-8')))
+        assert rows[0]['単語'] == '犬が'   # existing row updated
+        assert rows[1]['単語'] == '猫が'   # new row also has particle
 
     def test_uses_default_output_when_no_output_given(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

@@ -9,7 +9,7 @@ import csv as _csv
 from jlpt_vocab.pipeline import (
     word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
     make_csv_columns, ollama_generate_furigana, ollama_generate_sentence_furigana,
-    find_repair_candidates, detect_csv_languages,
+    find_repair_candidates, detect_csv_languages, apply_particles, csv_has_particles,
 )
 from tests.conftest import requires_unidic
 
@@ -350,6 +350,74 @@ class TestBuildArgparse:
         args = _make_parser().parse_args(['--model', 'gemma4:e4b', '--languages', 'french', 'spanish'])
         assert args.languages == ['french', 'spanish']
 
+    def test_particles_flag_defaults_false(self):
+        from scripts.build import _make_parser
+        args = _make_parser().parse_args(['--model', 'gemma4:e4b'])
+        assert args.particles is False
+
+    def test_particles_appended_after_build(self, tmp_path):
+        # Particles must be applied to the finished CSV, not row-by-row, so that
+        # sentences are generated from the bare word form.
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        cols = make_csv_columns([])
+        path = tmp_path / 'vocab.csv'
+
+        def fake_process_word(word, *a, **kw):
+            return (
+                {'品詞': '名詞', '英語訳': 'dog', '例文': '犬が吠える。',
+                 '例文振り仮名': '犬が吠える。', '英語例文': 'The dog barks.', '日本語ターゲット': '犬'},
+                [word], None,
+            )
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--particles', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '犬', '振り仮名_raw': '犬[いぬ]', '英語訳_raw': 'dog', 'レベル': 'N5'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word), \
+             patch('scripts.build.get_pitch_columns', return_value={'ピッチアクセント': '2', 'ピッチアクセント図': '2_2.svg'}), \
+             patch('scripts.build.bracket_to_ruby', return_value='<ruby>犬<rt>いぬ</rt></ruby>'), \
+             patch('scripts.build.plain_kana', return_value='いぬ'):
+            build_mod.main()
+
+        with open(path, newline='', encoding='utf-8') as f:
+            rows = list(_csv.DictReader(f))
+        assert rows[0]['単語'] == '犬が'
+        assert rows[0]['振り仮名'] == '<ruby>犬<rt>いぬ</rt></ruby>が'
+
+    def test_particles_applied_after_resume(self, tmp_path):
+        # --resume --particles: already-done words are skipped in the loop, but
+        # particles must still be applied to the full CSV at the end.
+        import json
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        cols = make_csv_columns([])
+        path = tmp_path / 'vocab.csv'
+        _write_csv(path, [
+            {c: 'x' for c in cols} | {'単語': '犬', '振り仮名': '<ruby>犬<rt>いぬ</rt></ruby>', '品詞': '名詞'},
+        ], cols)
+        ckpt = path.with_name('vocab_checkpoint.json')
+        ckpt.write_text(json.dumps(['犬']), encoding='utf-8')
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--resume', '--particles', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '犬', '振り仮名_raw': '犬[いぬ]', '英語訳_raw': 'dog', 'レベル': 'N5'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}):
+            build_mod.main()
+
+        with open(path, newline='', encoding='utf-8') as f:
+            rows = list(_csv.DictReader(f))
+        assert rows[0]['単語'] == '犬が'
+        assert rows[0]['振り仮名'] == '<ruby>犬<rt>いぬ</rt></ruby>が'
+
     def test_resume_infers_languages_from_existing_csv(self, tmp_path):
         # main() should detect languages from the CSV header when --resume is used
         # without --languages, so resumed words are written with the correct columns.
@@ -561,6 +629,118 @@ class TestBuildArgparse:
             build_mod.main()
 
         assert processed == []
+
+
+class TestApplyParticles:
+    def test_appends_particle_to_noun(self):
+        rows = [{'単語': '犬', '振り仮名': 'いぬ', '品詞': '名詞'}]
+        updated, skipped, unchanged = apply_particles(rows)
+        assert rows[0]['単語'] == '犬が'
+        assert rows[0]['振り仮名'] == 'いぬが'
+        assert updated == 1 and skipped == 0 and unchanged == 0
+
+    def test_appends_particle_to_verb(self):
+        rows = [{'単語': '食べる', '振り仮名': 'たべる', '品詞': '一段動詞'}]
+        apply_particles(rows)
+        assert rows[0]['単語'] == '食べるよ'
+
+    def test_skips_already_particled_row(self):
+        rows = [{'単語': '犬が', '振り仮名': 'いぬが', '品詞': '名詞'}]
+        updated, skipped, unchanged = apply_particles(rows)
+        assert rows[0]['単語'] == '犬が'
+        assert updated == 0 and skipped == 1 and unchanged == 0
+
+    def test_unchanged_for_no_particle_pos(self):
+        rows = [{'単語': 'でも', '振り仮名': 'でも', '品詞': '接続詞'}]
+        updated, skipped, unchanged = apply_particles(rows)
+        assert rows[0]['単語'] == 'でも'
+        assert updated == 0 and skipped == 0 and unchanged == 1
+
+    def test_returns_correct_counts_for_mixed_rows(self):
+        rows = [
+            {'単語': '犬', '振り仮名': 'いぬ', '品詞': '名詞'},
+            {'単語': '猫が', '振り仮名': 'ねこが', '品詞': '名詞'},
+            {'単語': 'でも', '振り仮名': 'でも', '品詞': '接続詞'},
+        ]
+        updated, skipped, unchanged = apply_particles(rows)
+        assert updated == 1 and skipped == 1 and unchanged == 1
+
+
+class TestCsvHasParticles:
+    def test_majority_particle_rows_returns_true(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: '' for c in cols} | {'単語': '犬が', '品詞': '名詞'},
+            {c: '' for c in cols} | {'単語': '猫が', '品詞': '名詞'},
+            {c: '' for c in cols} | {'単語': '食べるよ', '品詞': '一段動詞'},
+        ], cols)
+        assert csv_has_particles(path) is True
+
+    def test_bare_rows_returns_false(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: '' for c in cols} | {'単語': '犬', '品詞': '名詞'},
+            {c: '' for c in cols} | {'単語': '猫', '品詞': '名詞'},
+        ], cols)
+        assert csv_has_particles(path) is False
+
+    def test_missing_file_returns_false(self, tmp_path):
+        assert csv_has_particles(tmp_path / 'missing.csv') is False
+
+    def test_no_particle_eligible_pos_returns_false(self, tmp_path):
+        path = tmp_path / 'test.csv'
+        cols = make_csv_columns([])
+        _write_csv(path, [
+            {c: '' for c in cols} | {'単語': 'でも', '品詞': '接続詞'},
+        ], cols)
+        assert csv_has_particles(path) is False
+
+
+class TestRepairWithParticles:
+    def test_repair_reapplies_particles_when_csv_had_them(self, tmp_path):
+        import json
+        from unittest.mock import patch
+        import scripts.build as build_mod
+        cols = make_csv_columns([])
+        path = tmp_path / 'vocab.csv'
+        # CSV has particles on all complete rows
+        _write_csv(path, [
+            {c: 'ok' for c in cols} | {'単語': '犬が', '振り仮名': 'いぬが', '品詞': '名詞'},
+            {c: '' for c in cols} | {'単語': '猫が', '振り仮名': 'ねこが', '品詞': '名詞',
+                                     '例文振り仮名': '', '日本語ターゲット': ''},
+        ], cols)
+        ckpt = path.with_name('vocab_checkpoint.json')
+        ckpt.write_text(json.dumps(['犬', '猫']), encoding='utf-8')
+
+        def fake_process_word(word, *a, **kw):
+            return (
+                {'品詞': '名詞', '英語訳': 'cat', '例文': '猫がいる。',
+                 '例文振り仮名': '猫がいる。', '英語例文': 'There is a cat.', '日本語ターゲット': '猫'},
+                [word], None,
+            )
+
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        with patch('sys.argv', argv), \
+             patch('scripts.build.ensure_all'), \
+             patch('scripts.build.fetch_chadmuro_words', return_value=[
+                 {'単語': '犬', '振り仮名_raw': '犬[いぬ]', '英語訳_raw': 'dog', 'レベル': 'N5'},
+                 {'単語': '猫', '振り仮名_raw': '猫[ねこ]', '英語訳_raw': 'cat', 'レベル': 'N5'},
+             ]), \
+             patch('scripts.build.build_jitendex_index', return_value={}), \
+             patch('scripts.build.build_jmdict_index', return_value={}), \
+             patch('scripts.build.process_word', side_effect=fake_process_word), \
+             patch('scripts.build.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}), \
+             patch('scripts.build.bracket_to_ruby', return_value='ねこ'), \
+             patch('scripts.build.plain_kana', return_value='ねこ'):
+            build_mod.main()
+
+        with open(path, newline='', encoding='utf-8') as f:
+            rows = list(_csv.DictReader(f))
+        words = [r['単語'] for r in rows]
+        assert len(words) == 2, f"Expected 2 rows after repair, got {len(words)}: {words}"
+        assert all(w.endswith('が') for w in words), f"Expected all words to end with が, got: {words}"
 
 
 class TestDetectCsvLanguages:
