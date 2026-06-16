@@ -13,14 +13,17 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from jlpt_vocab.csv_utils import drop_from_csv, drop_from_checkpoint, load_checkpoint, save_checkpoint
+from jlpt_vocab.csv_utils import (
+    canonical, drop_from_csv, drop_from_checkpoint, load_checkpoint, save_checkpoint, write_csv_atomic,
+)
 from jlpt_vocab.dictionary import build_jitendex_index, build_jmdict_index
 from jlpt_vocab.download import ensure_all
 from jlpt_vocab.furigana import bracket_to_ruby
 from jlpt_vocab.pitch_accent import get_pitch_columns, plain_kana
 from jlpt_vocab.pipeline import (
     LEVELS, DATA_DIR, JITENDEX_DIR, OUTPUT_CSV, LANGUAGES, make_csv_columns,
-    fetch_chadmuro_words, process_word, find_repair_candidates, detect_csv_languages,
+    fetch_chadmuro_words, apply_particles, process_word,
+    find_repair_candidates, detect_csv_languages,
 )
 
 
@@ -37,6 +40,8 @@ def _make_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument('--repair', action='store_true',
                         help='Find rows with empty Ollama-generated fields and reprocess them')
+    parser.add_argument('--particles', action='store_true',
+                        help='Append pitch-accent citation particle (が/よ) to 単語 and 振り仮名')
     return parser
 
 
@@ -58,11 +63,12 @@ def main() -> None:
             f'{LANGUAGES[l][0]}語例文' for l in effective_langs
         ]
         candidates = find_repair_candidates(output_path, repair_cols)
+        bare_candidates = {canonical(c) for c in candidates}
         if candidates:
             print(f'Repairing {len(candidates)} incomplete rows...')
             drop_from_csv(output_path, candidates)
             drop_from_checkpoint(checkpoint_path, candidates)
-            done -= candidates
+            done -= bare_candidates
         args.resume = True
         args.languages = effective_langs
     elif args.resume and not args.languages and output_path.exists():
@@ -88,8 +94,8 @@ def main() -> None:
             unique_words.append(w)
 
     if args.repair:
-        unique_words = [w for w in unique_words if w['単語'] in candidates]
-        unfound = candidates - {w['単語'] for w in unique_words}
+        unique_words = [w for w in unique_words if w['単語'] in bare_candidates]
+        unfound = bare_candidates - {w['単語'] for w in unique_words}
         if unfound:
             print(f'Warning: {len(unfound)} repair candidate(s) not found in the fetched word lists. '
                   'For custom words, re-run add_words.py --resume to reprocess them.')
@@ -144,6 +150,15 @@ def main() -> None:
     incomplete = find_repair_candidates(output_path, end_repair_cols)
     if incomplete:
         print(f'\nWarning: {len(incomplete)} rows have empty fields. Re-run with --repair to fix them.')
+
+    if args.particles:
+        with open(output_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            rows = list(reader)
+        updated, skipped, _ = apply_particles(rows)
+        write_csv_atomic(output_path, fieldnames, rows)
+        print(f'Particles added: {updated} updated, {skipped} already had particle.')
 
     print(f'\nDone. {len(done)} rows → {output_path}')
 

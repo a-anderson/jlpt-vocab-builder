@@ -8,13 +8,13 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint
+from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint, write_csv_atomic
 from jlpt_vocab.dictionary import build_jitendex_index, build_jmdict_index
 from jlpt_vocab.download import ensure_all, DATA_DIR
 from jlpt_vocab.furigana import bracket_to_ruby
 from jlpt_vocab.pitch_accent import get_pitch_columns, plain_kana
 from jlpt_vocab.pipeline import (
-    LANGUAGES, make_csv_columns, process_word, ollama_generate_furigana,
+    LANGUAGES, make_csv_columns, apply_particles, process_word, ollama_generate_furigana,
 )
 
 DEFAULT_OUTPUT = Path('output/custom_words.csv')
@@ -37,7 +37,7 @@ def _word_furigana(word: str, reading: str, model: str) -> str:
     return ollama_generate_furigana(word, reading, model)
 
 
-def add_words(words: list[str], output_path: Path, model: str, langs: list[str]) -> None:
+def add_words(words: list[str], output_path: Path, model: str, langs: list[str], particles: bool = False) -> None:
     ensure_all(langs)
 
     jitendex = build_jitendex_index(DATA_DIR / 'jitendex-yomitan')
@@ -92,6 +92,15 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str])
             done.add(bare_word)
             save_checkpoint(done, checkpoint_path)
 
+    if particles:
+        with open(output_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            rows = list(reader)
+        updated, skipped, _ = apply_particles(rows)
+        write_csv_atomic(output_path, fieldnames, rows)
+        print(f'Particles added: {updated} updated, {skipped} already had particle.')
+
     print(f'Done. {len(done)} word(s) written to {output_path}.')
     print('Run `python scripts/generate_svgs.py` to generate pitch diagrams for new entries.')
 
@@ -108,6 +117,7 @@ def add_words_from_args(
     output_path: Path,
     model: str,
     langs: list[str],
+    particles: bool = False,
 ) -> None:
     """Merge words from a file and CLI args, deduplicate, then call add_words."""
     if file_path is not None:
@@ -122,7 +132,7 @@ def add_words_from_args(
     if not words:
         sys.exit('No words provided. Pass words as arguments or use --file.')
 
-    add_words(words, output_path, model, langs)
+    add_words(words, output_path, model, langs, particles=particles)
 
 
 def _make_parser() -> argparse.ArgumentParser:
@@ -134,13 +144,15 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument('--languages', nargs='*', default=[],
                         choices=list(LANGUAGES.keys()),
                         help='Extra languages to include alongside English (default: none — English only)')
+    parser.add_argument('--particles', action='store_true',
+                        help='Append pitch-accent citation particle (が/よ) to 単語 and 振り仮名')
     return parser
 
 
 def main() -> None:
     args = _make_parser().parse_args()
     file_path = Path(args.file) if args.file else None
-    add_words_from_args(args.words, file_path, Path(args.output), args.model, args.languages)
+    add_words_from_args(args.words, file_path, Path(args.output), args.model, args.languages, particles=args.particles)
 
 
 if __name__ == '__main__':

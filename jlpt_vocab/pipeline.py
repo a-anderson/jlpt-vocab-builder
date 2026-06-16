@@ -50,6 +50,37 @@ def make_csv_columns(langs: list[str]) -> list[str]:
     return cols
 
 
+def get_particle(pos: str) -> str:
+    """Return the pitch-accent citation particle for a given 品詞 value."""
+    if pos in {"名詞", "な形容詞", "の形容詞", "代名詞"}:
+        # Exact: CLAUDE.md POS mapping defines only these bare noun forms.
+        return "が"
+    if "動詞" in pos or pos == "い形容詞":
+        return "よ"
+    return ""
+
+
+def apply_particles(rows: list[dict]) -> tuple[int, int, int]:
+    """Append citation-form particles to 単語 and 振り仮名 in place. Returns (updated, skipped, unchanged)."""
+    updated = skipped = unchanged = 0
+    for row in rows:
+        particle = get_particle(row.get('品詞', ''))
+        if not particle:
+            unchanged += 1
+            continue
+        word_has = row['単語'].endswith(particle)
+        furi_has = row['振り仮名'].endswith(particle)
+        if word_has and furi_has:
+            skipped += 1
+            continue
+        if not word_has:
+            row['単語'] += particle
+        if not furi_has:
+            row['振り仮名'] += particle
+        updated += 1
+    return updated, skipped, unchanged
+
+
 # ---------------------------------------------------------------------------
 # Stage 1: Word list
 # ---------------------------------------------------------------------------
