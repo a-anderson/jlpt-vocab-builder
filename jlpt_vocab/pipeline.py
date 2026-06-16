@@ -56,7 +56,6 @@ def get_particle(pos: str) -> str:
         # Exact: CLAUDE.md POS mapping defines only these bare noun forms.
         return "が"
     if "動詞" in pos or pos == "い形容詞":
-        # Substring: catches all 五段/一段/他動詞/自動詞 variants without enumerating each.
         return "よ"
     return ""
 

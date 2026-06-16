@@ -651,6 +651,13 @@ class TestApplyParticles:
         assert rows[0]['単語'] == '犬が'
         assert updated == 0 and skipped == 1 and unchanged == 0
 
+    def test_fixes_out_of_sync_furigana(self):
+        rows = [{'単語': '犬が', '振り仮名': 'いぬ', '品詞': '名詞'}]
+        updated, skipped, unchanged = apply_particles(rows)
+        assert rows[0]['単語'] == '犬が'   # already had particle — left alone
+        assert rows[0]['振り仮名'] == 'いぬが'  # missing particle — added
+        assert updated == 1 and skipped == 0
+
     def test_unchanged_for_no_particle_pos(self):
         rows = [{'単語': 'でも', '振り仮名': 'でも', '品詞': '接続詞'}]
         updated, skipped, unchanged = apply_particles(rows)

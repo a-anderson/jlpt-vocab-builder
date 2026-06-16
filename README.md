@@ -294,11 +294,11 @@ When overwriting the input file, a backup is written to `<filename>.csv.bak` (e.
 > **TTS users:** run `add_particle.py` (or build with `--particles`) before importing — the citation-form particle is needed for the pitch contour to be audible in generated audio.
 
 1. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
-3. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
+2. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
     - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
     - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`
     - Windows: copy to `%APPDATA%\Anki2\<profile>\collection.media\`
-4. Reference the columns in your card template:
+3. Reference the columns in your card template:
 
 ```html
 {{振り仮名}}
