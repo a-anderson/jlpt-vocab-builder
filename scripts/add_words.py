@@ -2,16 +2,13 @@
 
 import argparse
 import csv
-import os
 import re
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 from tqdm import tqdm
 
-from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint
+from jlpt_vocab.csv_utils import load_checkpoint, save_checkpoint, write_csv_atomic
 from jlpt_vocab.dictionary import build_jitendex_index, build_jmdict_index
 from jlpt_vocab.download import ensure_all, DATA_DIR
 from jlpt_vocab.furigana import bracket_to_ruby
@@ -100,19 +97,9 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str],
             reader = csv.DictReader(f)
             fieldnames = reader.fieldnames
             rows = list(reader)
-        apply_particles(rows)
-        fd, tmp_str = tempfile.mkstemp(dir=output_path.parent, suffix='.csv')
-        tmp = Path(tmp_str)
-        try:
-            with os.fdopen(fd, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)
-            shutil.move(str(tmp), output_path)
-        except Exception:
-            tmp.unlink(missing_ok=True)
-            raise
-        print('Particles added.')
+        updated, skipped, _ = apply_particles(rows)
+        write_csv_atomic(output_path, fieldnames, rows)
+        print(f'Particles added: {updated} updated, {skipped} already had particle.')
 
     print(f'Done. {len(done)} word(s) written to {output_path}.')
     print('Run `python scripts/generate_svgs.py` to generate pitch diagrams for new entries.')

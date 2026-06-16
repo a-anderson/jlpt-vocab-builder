@@ -9,7 +9,7 @@ import csv as _csv
 from jlpt_vocab.pipeline import (
     word_in_sentence, extract_target, _ts_field, _parse_json, _empty_ollama,
     make_csv_columns, ollama_generate_furigana, ollama_generate_sentence_furigana,
-    find_repair_candidates, detect_csv_languages, apply_particles, csv_has_particles,
+    find_repair_candidates, detect_csv_languages, apply_particles,
 )
 from tests.conftest import requires_unidic
 
@@ -643,6 +643,7 @@ class TestApplyParticles:
         rows = [{'単語': '食べる', '振り仮名': 'たべる', '品詞': '一段動詞'}]
         apply_particles(rows)
         assert rows[0]['単語'] == '食べるよ'
+        assert rows[0]['振り仮名'] == 'たべるよ'
 
     def test_skips_already_particled_row(self):
         rows = [{'単語': '犬が', '振り仮名': 'いぬが', '品詞': '名詞'}]
@@ -666,46 +667,14 @@ class TestApplyParticles:
         assert updated == 1 and skipped == 1 and unchanged == 1
 
 
-class TestCsvHasParticles:
-    def test_majority_particle_rows_returns_true(self, tmp_path):
-        path = tmp_path / 'test.csv'
-        cols = make_csv_columns([])
-        _write_csv(path, [
-            {c: '' for c in cols} | {'単語': '犬が', '品詞': '名詞'},
-            {c: '' for c in cols} | {'単語': '猫が', '品詞': '名詞'},
-            {c: '' for c in cols} | {'単語': '食べるよ', '品詞': '一段動詞'},
-        ], cols)
-        assert csv_has_particles(path) is True
-
-    def test_bare_rows_returns_false(self, tmp_path):
-        path = tmp_path / 'test.csv'
-        cols = make_csv_columns([])
-        _write_csv(path, [
-            {c: '' for c in cols} | {'単語': '犬', '品詞': '名詞'},
-            {c: '' for c in cols} | {'単語': '猫', '品詞': '名詞'},
-        ], cols)
-        assert csv_has_particles(path) is False
-
-    def test_missing_file_returns_false(self, tmp_path):
-        assert csv_has_particles(tmp_path / 'missing.csv') is False
-
-    def test_no_particle_eligible_pos_returns_false(self, tmp_path):
-        path = tmp_path / 'test.csv'
-        cols = make_csv_columns([])
-        _write_csv(path, [
-            {c: '' for c in cols} | {'単語': 'でも', '品詞': '接続詞'},
-        ], cols)
-        assert csv_has_particles(path) is False
-
-
 class TestRepairWithParticles:
-    def test_repair_reapplies_particles_when_csv_had_them(self, tmp_path):
+    def test_repair_particles_flag_reapplies_particles(self, tmp_path):
         import json
         from unittest.mock import patch
         import scripts.build as build_mod
         cols = make_csv_columns([])
         path = tmp_path / 'vocab.csv'
-        # CSV has particles on all complete rows
+        # CSV has particles on complete rows; 猫が has empty Ollama fields and needs repair
         _write_csv(path, [
             {c: 'ok' for c in cols} | {'単語': '犬が', '振り仮名': 'いぬが', '品詞': '名詞'},
             {c: '' for c in cols} | {'単語': '猫が', '振り仮名': 'ねこが', '品詞': '名詞',
@@ -721,7 +690,7 @@ class TestRepairWithParticles:
                 [word], None,
             )
 
-        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--output', str(path)]
+        argv = ['build.py', '--model', 'gemma4:e4b', '--repair', '--particles', '--output', str(path)]
         with patch('sys.argv', argv), \
              patch('scripts.build.ensure_all'), \
              patch('scripts.build.fetch_chadmuro_words', return_value=[

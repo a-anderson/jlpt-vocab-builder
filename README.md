@@ -252,7 +252,7 @@ python scripts/dedup_words.py --output output/jlpt_vocab.csv --dry-run
 python scripts/dedup_words.py --output output/jlpt_vocab.csv
 ```
 
-Rows are matched on **word + furigana** together, so words that share kanji but have different readings (e.g. 人 read as ひと vs にん) are treated as separate entries and both kept. When a true duplicate is found, the first occurrence is kept and subsequent ones are dropped.
+Rows are matched on **canonical word + canonical furigana**, where canonical means the trailing citation particle (が/よ) is stripped before comparing. This means a particle-suffixed row (`犬が`) and a bare row (`犬`) from two separate CSV files are treated as duplicates — the first occurrence is kept. Words that share kanji but have different readings (e.g. 人 read as ひと vs にん) are distinct canonical forms and both kept.
 
 ---
 
@@ -285,14 +285,15 @@ python scripts/add_particle.py --input output/jlpt_vocab.csv --output output/jlp
 
 The script appends the particle to both the `単語` and `振り仮名` columns. Words that already have the correct particle are skipped, so re-running is safe. Parts of speech with no citation particle (adverbs, conjunctions, expressions, etc.) are left unchanged.
 
-When overwriting the input file, a backup is written to `<filename>.bak` (e.g. `output/jlpt_vocab.bak`) before any changes are made.
+When overwriting the input file, a backup is written to `<filename>.csv.bak` (e.g. `output/jlpt_vocab.csv.bak`) before any changes are made.
 
 ---
 
 ## Anki integration
 
-1. Optionally run `add_particle.py` first (see above) if you use a TTS app to generate word audio — the particle is needed for the pitch contour to be audible.
-2. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
+> **TTS users:** run `add_particle.py` (or build with `--particles`) before importing — the citation-form particle is needed for the pitch contour to be audible in generated audio.
+
+1. Import `output/jlpt_vocab.csv` via **File → Import**. Enable **Allow HTML in fields**.
 3. Copy all SVGs from `output/pitch_svgs/` into your Anki media folder:
     - macOS: `cp output/pitch_svgs/*.svg ~/Library/Application\ Support/Anki2/<profile>/collection.media/`
     - Linux: `cp output/pitch_svgs/*.svg ~/.local/share/Anki2/<profile>/collection.media/`

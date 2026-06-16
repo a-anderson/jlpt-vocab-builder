@@ -58,6 +58,7 @@ def test_main_transforms_csv(tmp_path, monkeypatch):
     assert rows[0]['単語'] == '犬が'
     assert rows[0]['振り仮名'] == 'いぬが'
     assert rows[1]['単語'] == '食べるよ'
+    assert rows[1]['振り仮名'] == '<ruby>食<rt>た</rt></ruby>べるよ'
     assert rows[2]['単語'] == 'でも'  # no particle for conjunctions
 
 
@@ -79,7 +80,7 @@ def test_main_creates_backup_on_inplace_write(tmp_path, monkeypatch):
     ])
     monkeypatch.setattr(sys, 'argv', ['add_particle.py', '--input', str(csv_path)])
     main()
-    assert (tmp_path / 'test.bak').exists()
+    assert (tmp_path / 'test.csv.bak').exists()
 
 
 def test_main_no_backup_when_writing_to_separate_file(tmp_path, monkeypatch):
@@ -90,7 +91,19 @@ def test_main_no_backup_when_writing_to_separate_file(tmp_path, monkeypatch):
     ])
     monkeypatch.setattr(sys, 'argv', ['add_particle.py', '--input', str(input_path), '--output', str(output_path)])
     main()
-    assert not (tmp_path / 'input.bak').exists()
+    assert not (tmp_path / 'input.csv.bak').exists()
+
+
+def test_dry_run_does_not_modify_file(tmp_path, monkeypatch):
+    csv_path = tmp_path / 'test.csv'
+    _write_csv(csv_path, [
+        {'単語': '犬', '振り仮名': 'いぬ', '品詞': '名詞', '英語訳': 'dog', 'レベル': 'n5'},
+    ])
+    mtime_before = csv_path.stat().st_mtime
+    monkeypatch.setattr(sys, 'argv', ['add_particle.py', '--input', str(csv_path), '--dry-run'])
+    main()
+    assert csv_path.stat().st_mtime == mtime_before
+    assert _read_csv(csv_path)[0]['単語'] == '犬'
 
 
 def test_main_output_separate_file(tmp_path, monkeypatch):

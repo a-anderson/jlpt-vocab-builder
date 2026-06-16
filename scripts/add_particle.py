@@ -1,7 +1,7 @@
 """Append a pitch-accent citation particle to 単語 and 振り仮名 columns in a vocabulary CSV.
 
 Nouns/na-adj/no-adj/pronouns get が; verbs/i-adj get よ; everything else is unchanged.
-Rows where 単語 already ends with the particle are skipped (idempotent).
+Rows where both columns already end with the particle are skipped (idempotent).
 
 Usage:
   python scripts/add_particle.py --input output/n4.csv
@@ -11,11 +11,10 @@ Usage:
 
 import argparse
 import csv
-import os
 import shutil
-import tempfile
 from pathlib import Path
 
+from jlpt_vocab.csv_utils import write_csv_atomic
 from jlpt_vocab.pipeline import apply_particles, get_particle
 
 
@@ -24,7 +23,6 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument('--input', required=True, help='Input CSV (build.py output format)')
     parser.add_argument('--output', default=None, help='Output CSV (default: overwrite input)')
     parser.add_argument('--dry-run', action='store_true', help='Preview first few changes, do not write')
-    parser.add_argument('--dry-run-count', type=int, default=5, help='Number of rows to preview (default: 5)')
     return parser
 
 
@@ -41,7 +39,7 @@ def main() -> None:
     if args.dry_run:
         shown = 0
         for row in rows:
-            if shown >= args.dry_run_count:
+            if shown >= 5:
                 break
             pos = row.get('品詞', '')
             particle = get_particle(pos)
@@ -55,20 +53,9 @@ def main() -> None:
     updated, skipped, unchanged = apply_particles(rows)
 
     if output_path == input_path:
-        shutil.copy2(input_path, input_path.with_suffix('.bak'))
+        shutil.copy2(input_path, input_path.with_name(input_path.name + '.bak'))
 
-    fd, tmp_str = tempfile.mkstemp(dir=output_path.parent, suffix='.csv')
-    tmp = Path(tmp_str)
-    try:
-        with os.fdopen(fd, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        shutil.move(str(tmp), output_path)
-    except Exception:
-        tmp.unlink(missing_ok=True)
-        raise
-
+    write_csv_atomic(output_path, fieldnames, rows)
     print(f"Done. {updated} updated, {skipped} already had particle, {unchanged} had no particle → {output_path}")
 
 

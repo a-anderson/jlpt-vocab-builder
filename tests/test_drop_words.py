@@ -66,12 +66,15 @@ class TestDropFromCsv:
 
 
 class TestDropFromCsvParticles:
+    def _write(self, path, rows):
+        with open(path, 'w', newline='', encoding='utf-8') as f:
+            w = csv.DictWriter(f, fieldnames=_COLS)
+            w.writeheader()
+            w.writerows(rows)
+
     def test_bare_word_matches_particle_row(self, tmp_path):
         path = tmp_path / 'test.csv'
-        rows = [{c: '' for c in _COLS} | {'単語': '犬が', '品詞': '名詞'}]
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            csv.DictWriter(f, fieldnames=_COLS).writeheader()
-            csv.DictWriter(f, fieldnames=_COLS).writerows(rows)
+        self._write(path, [{c: '' for c in _COLS} | {'単語': '犬が', '品詞': '名詞'}])
         found = drop_from_csv(path, {'犬'})
         assert found == {'犬'}
         with open(path, encoding='utf-8') as f:
@@ -80,19 +83,13 @@ class TestDropFromCsvParticles:
 
     def test_particle_word_matches_particle_row(self, tmp_path):
         path = tmp_path / 'test.csv'
-        rows = [{c: '' for c in _COLS} | {'単語': '犬が', '品詞': '名詞'}]
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            csv.DictWriter(f, fieldnames=_COLS).writeheader()
-            csv.DictWriter(f, fieldnames=_COLS).writerows(rows)
+        self._write(path, [{c: '' for c in _COLS} | {'単語': '犬が', '品詞': '名詞'}])
         found = drop_from_csv(path, {'犬が'})
         assert found == {'犬が'}
 
     def test_returns_what_caller_passed_not_stored_form(self, tmp_path):
         path = tmp_path / 'test.csv'
-        rows = [{c: '' for c in _COLS} | {'単語': '食べるよ', '品詞': '一段動詞'}]
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            csv.DictWriter(f, fieldnames=_COLS).writeheader()
-            csv.DictWriter(f, fieldnames=_COLS).writerows(rows)
+        self._write(path, [{c: '' for c in _COLS} | {'単語': '食べるよ', '品詞': '一段動詞'}])
         found = drop_from_csv(path, {'食べる'})
         assert '食べる' in found  # returned what caller passed, not '食べるよ'
 

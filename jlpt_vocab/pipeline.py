@@ -53,8 +53,10 @@ def make_csv_columns(langs: list[str]) -> list[str]:
 def get_particle(pos: str) -> str:
     """Return the pitch-accent citation particle for a given 品詞 value."""
     if pos in {"名詞", "な形容詞", "の形容詞", "代名詞"}:
+        # Exact: CLAUDE.md POS mapping defines only these bare noun forms.
         return "が"
     if "動詞" in pos or pos == "い形容詞":
+        # Substring: catches all 五段/一段/他動詞/自動詞 variants without enumerating each.
         return "よ"
     return ""
 
@@ -67,26 +69,17 @@ def apply_particles(rows: list[dict]) -> tuple[int, int, int]:
         if not particle:
             unchanged += 1
             continue
-        if row['単語'].endswith(particle):
+        word_has = row['単語'].endswith(particle)
+        furi_has = row['振り仮名'].endswith(particle)
+        if word_has and furi_has:
             skipped += 1
             continue
-        row['単語'] += particle
-        row['振り仮名'] += particle
+        if not word_has:
+            row['単語'] += particle
+        if not furi_has:
+            row['振り仮名'] += particle
         updated += 1
     return updated, skipped, unchanged
-
-
-def csv_has_particles(path: Path) -> bool:
-    """Return True if the majority of particle-eligible rows already have particles."""
-    if not path.exists():
-        return False
-    with open(path, newline='', encoding='utf-8') as f:
-        rows = list(csv.DictReader(f))
-    eligible = [(r['単語'], get_particle(r.get('品詞', ''))) for r in rows if r.get('品詞')]
-    eligible = [(w, p) for w, p in eligible if p]
-    if not eligible:
-        return False
-    return sum(1 for w, p in eligible if w.endswith(p)) / len(eligible) > 0.5
 
 
 # ---------------------------------------------------------------------------
