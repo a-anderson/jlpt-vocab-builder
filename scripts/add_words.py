@@ -77,7 +77,9 @@ def add_words(words: list[str], output_path: Path, model: str, langs: list[str],
                 bare_word, model, jitendex, lang_indexes, langs,
             )
             振り仮名 = _word_furigana(word, jitendex_reading, model)
-            reading = plain_kana(word)
+            # Count mora from the resolved reading, not the raw word: a plain-kanji
+            # word (e.g. 先生) has no kana of its own, so plain_kana(word) is empty.
+            reading = plain_kana(振り仮名) or plain_kana(word)
             pitch_cols = get_pitch_columns(lookup_forms[0], reading)
 
             writer.writerow({k: v.replace('\x00', '') for k, v in {
