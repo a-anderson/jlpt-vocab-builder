@@ -201,6 +201,23 @@ class TestAddWords:
             rows = list(csv.DictReader(f))
         assert rows[0]['振り仮名'] == '<ruby>猫背<rt>ねこぜ</rt></ruby>'
 
+    def test_pitch_reading_uses_kana_not_kanji(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        output = tmp_path / 'out.csv'
+        jitendex = {'先生': {'品詞': '名詞', '英語訳': 'teacher', '読み': 'せんせい', '例文': '', '英語例文': '', '例文振り仮名': ''}}
+        with (
+            patch('scripts.add_words.ensure_all'),
+            patch('scripts.add_words.build_jitendex_index', return_value=jitendex),
+            patch('scripts.add_words.build_jmdict_index', return_value={}),
+            patch(_OLLAMA_PATCH, side_effect=_mock_ollama),
+            patch(_SENT_FURI_PATCH, return_value=''),
+            patch('scripts.add_words.get_pitch_columns', return_value={'ピッチアクセント': '', 'ピッチアクセント図': ''}) as mock_pitch,
+        ):
+            from scripts.add_words import add_words
+            add_words(['先生'], output, 'gemma4:e4b', ['french'])
+        # reading (2nd positional arg) must be the kana reading, not the kanji headword
+        assert mock_pitch.call_args.args[1] == 'せんせい'
+
     def test_furigana_mixed_calls_ollama_furigana(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         output = tmp_path / 'out.csv'
