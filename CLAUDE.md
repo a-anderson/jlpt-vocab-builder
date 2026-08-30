@@ -185,10 +185,21 @@ Words from chadmuro may contain parenthesised content:
 **SVG filename:** `{mora_count}_{pattern}.svg` (e.g. `3_2.svg`). Unknown → `unknown.svg`.
 
 **Phrase contours** (`scripts/phrase_svg.py`) — for phrases and compounds that rise and fall more
-than once and so have no pattern number. Mora are 1-indexed and the phrase starts low: `--rise N`
-marks the first high mora, `--drop N` the last high mora before a fall. This is the same convention
-as the pattern numbers, so `--rise 2 --drop N` reproduces pattern N exactly. Particles are hollow
-circles at any position, evenly spaced (no `PARTICLE_GAP`). Files are named
+than once and so have no pattern number. `--rise N` and `--drop N` both name the boundary **after**
+mora N, so `--drop N` is exactly pattern N and `--rise 0` means the phrase starts high. The phrase
+starts low otherwise:
+
+```
+heiban    LHHH   --rise 1
+atamadaka HLLL   --rise 0 --drop 1
+nakadaka  LHLL   --rise 1 --drop 2
+odaka     LHHH   --rise 1 --drop 4   (drops onto the following particle)
+```
+
+`--particles` is the exception — it names mora themselves, 1-indexed, since a particle is a mora
+rather than a boundary. Particles are hollow circles at any position, evenly spaced (no
+`PARTICLE_GAP`). Rejects a toggle that does nothing: a rise while already high, a drop while already
+low, or a rise and drop at the same boundary. Files are named
 `phrase_{mora}_r{rises}_d{drops}_p{particles}.svg`; the `phrase_` prefix keeps them clear of the
 `{mora}_{pattern}.svg` namespace that `collect_pairs` reverse-parses.
 
@@ -280,8 +291,8 @@ python scripts/generate_svgs.py
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs
 
 # Draw a phrase/compound contour by hand (multiple rises and falls, mid-phrase particles)
-python scripts/phrase_svg.py --mora 5 --rise 2 --drop 4 --particles 3   # 腹が立つ
-python scripts/phrase_svg.py --mora 8 --rise 2 6 --drop 4 --particles 3 8
+python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3   # 腹が立つ
+python scripts/phrase_svg.py --mora 8 --rise 1 5 --drop 3 --particles 3 8
 python scripts/phrase_svg.py --file phrases.txt
 ```
 
