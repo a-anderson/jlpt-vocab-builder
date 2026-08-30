@@ -36,10 +36,12 @@ jlpt_vocab/                 — importable Python package (library code)
   furigana.py               — bracket-to-ruby conversion and normalisation
   normalise.py              — word normalisation for chadmuro entries
   csv_utils.py              — checkpoint, atomic write, dedup, and CSV row-removal utilities
+  svg.py                    — pitch diagram visual constants and SVG emitter
 
 scripts/                    — CLI entry points (run with python scripts/<name>.py)
   build.py                  — main pipeline
   generate_svgs.py          — SVG diagram generator (run after CSV is complete)
+  phrase_svg.py             — SVG diagrams for hand-specified phrase/compound contours
   add_language.py           — retrofit a finished CSV with a new language
   add_words.py              — append arbitrary words to a CSV
   add_particle.py           — append pitch-accent citation particles (が/よ) to a finished CSV
@@ -64,6 +66,7 @@ tests/
   test_dedup_words.py
   test_fix_furigana.py
   test_generate_svgs.py
+  test_phrase_svg.py
   test_repair_pos.py
   test_correct_pos.py
 
@@ -181,6 +184,14 @@ Words from chadmuro may contain parenthesised content:
 
 **SVG filename:** `{mora_count}_{pattern}.svg` (e.g. `3_2.svg`). Unknown → `unknown.svg`.
 
+**Phrase contours** (`scripts/phrase_svg.py`) — for phrases and compounds that rise and fall more
+than once and so have no pattern number. Mora are 1-indexed and the phrase starts low: `--rise N`
+marks the first high mora, `--drop N` the last high mora before a fall. This is the same convention
+as the pattern numbers, so `--rise 2 --drop N` reproduces pattern N exactly. Particles are hollow
+circles at any position, evenly spaced (no `PARTICLE_GAP`). Files are named
+`phrase_{mora}_r{rises}_d{drops}_p{particles}.svg`; the `phrase_` prefix keeps them clear of the
+`{mora}_{pattern}.svg` namespace that `collect_pairs` reverse-parses.
+
 ---
 
 ## Sentence verification (fugashi)
@@ -267,6 +278,11 @@ python scripts/build.py --model gemma4:e4b --particles
 # Generate SVGs (after CSV is complete)
 python scripts/generate_svgs.py
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs
+
+# Draw a phrase/compound contour by hand (multiple rises and falls, mid-phrase particles)
+python scripts/phrase_svg.py --mora 5 --rise 2 --drop 4 --particles 3   # 腹が立つ
+python scripts/phrase_svg.py --mora 8 --rise 2 6 --drop 4 --particles 3 8
+python scripts/phrase_svg.py --file phrases.txt
 ```
 
 ### Parallel runs (one level per terminal)
