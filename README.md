@@ -86,6 +86,10 @@ python scripts/generate_svgs.py
 
 # Generate pitch accent SVGs from a specified CSV file
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs/
+
+# Draw a diagram for a phrase or compound by hand — see "Pitch diagrams for
+# phrases and compound words" below for the full flag reference
+python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
