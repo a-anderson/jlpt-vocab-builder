@@ -86,6 +86,10 @@ python scripts/generate_svgs.py
 
 # Generate pitch accent SVGs from a specified CSV file
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs/
+
+# Draw a diagram for a phrase or compound by hand — see "Pitch diagrams for
+# phrases and compound words" below for the full flag reference
+python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
@@ -110,6 +114,68 @@ head -1 output/n4.csv > output/jlpt_vocab.csv
 for f in output/n4.csv output/n3.csv output/n2.csv output/n1.csv; do tail -n +2 "$f"; done >> output/jlpt_vocab.csv
 
 python scripts/dedup_words.py --output output/jlpt_vocab.csv
+```
+
+---
+
+## Pitch diagrams for phrases and compound words
+
+Words whose pitch rises and falls more than once — phrases like `腹が立つ` and `頭が上がらない`, or
+compounds like `年末年始` — have no single accent pattern number, so the pipeline leaves them as
+`unknown.svg`. `phrase_svg.py` draws these by hand, producing a diagram visually identical to the
+generated ones:
+
+```bash
+# 腹が立つ (はらがたつ) — rises after は, falls after た, が is the 3rd mora
+python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3
+
+# Multiple rises and falls, and more than one particle
+python scripts/phrase_svg.py --mora 8 --rise 1 5 --drop 3 --particles 3 8
+
+# Batch: one set of flags per line
+python scripts/phrase_svg.py --file phrases.txt
+```
+
+`--rise N` and `--drop N` both name the boundary **after** mora N — `--drop 2` means the pitch falls
+after the second mora. This is the same numbering as the accent pattern, so `--drop N` is exactly
+pattern N. The phrase starts low unless `--rise 0` is given, which is the boundary before the first
+mora. On a four-mora word:
+
+| Contour   | Levels | Flags                | Equivalent |
+| --------- | ------ | -------------------- | ---------- |
+| Heiban    | `LHHH` | `--rise 1`           | `4_0.svg`  |
+| Atamadaka | `HLLL` | `--rise 0 --drop 1`  | `4_1.svg`  |
+| Nakadaka  | `LHLL` | `--rise 1 --drop 2`  | `4_2.svg`  |
+| Nakadaka  | `LHHL` | `--rise 1 --drop 3`  | `4_3.svg`  |
+| Odaka     | `LHHH` | `--rise 1 --drop 4`  | `4_4.svg`  |
+
+Repeat either flag for a phrase that goes up and down more than once, e.g. `--rise 1 5 --drop 3`.
+
+| Flag          | Meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `--mora`      | Total mora in the phrase, particles included                     |
+| `--rise`      | Pitch rises after mora N; `0` means the phrase starts high       |
+| `--drop`      | Pitch falls after mora N; same numbering as the accent pattern   |
+| `--particles` | Mora drawn as hollow circles — 1-indexed mora, not boundaries    |
+| `--file`      | Text file of specs, one per line; `#` comments ignored           |
+| `--out_dir`   | Output directory (default `output/pitch_svgs`)                   |
+
+Each generated file prints its resulting level string (`phrase_5_r1_d4_p3.svg  LHHHL`) so the
+contour can be checked before import. A toggle that does nothing is rejected — a rise while already
+high, a drop while already low, or a rise and drop at the same boundary.
+
+Files are named after the contour, e.g. `phrase_5_r1_d4_p3.svg` — identical contours reuse one file.
+Copy them into your Anki media folder alongside the generated SVGs and point the row's
+`ピッチアクセント図` field at the filename.
+
+A spec file looks like:
+
+```
+# 腹が立つ / はらがたつ
+--mora 5 --rise 1 --drop 4 --particles 3
+
+# 頭が上がらない / あたまがあがらない
+--mora 9 --rise 1 --drop 3 --particles 4
 ```
 
 ---
