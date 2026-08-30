@@ -2,9 +2,11 @@
 
 ## Project purpose
 
-Build a JLPT N4–N1 vocabulary CSV (~8,000 words) for Anki import.
+Build a JLPT N4–N1 vocabulary CSV (~6,000 words) for Anki import.
 
-Output: `output/jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch accent, English/French glosses, example sentence, sentence furigana, translations, surface form, JLPT level.
+Output: `output/jlpt_vocab.csv` with 11 columns by default (English only) — 単語, 振り仮名, 品詞, ピッチアクセント, ピッチアクセント図, 英語訳, 例文, 例文振り仮名, 英語例文, 日本語ターゲット, レベル.
+
+Each extra `--languages` entry adds two columns: a gloss column (e.g. `仏語訳`) and a sentence column (e.g. `仏語例文`). Column order is built by `make_csv_columns` in `jlpt_vocab/pipeline.py`.
 
 ---
 
@@ -27,24 +29,28 @@ Output: `output/jlpt_vocab.csv` with 13 columns — word, furigana, POS, pitch a
 ```
 jlpt_vocab/                 — importable Python package (library code)
   __init__.py
-  pipeline.py               — core pipeline logic (constants, Ollama, repair helpers)
+  pipeline.py               — core pipeline logic (constants, columns, Ollama, particles, repair helpers)
   dictionary.py             — Jitendex + JMdict index builders
   pitch_accent.py           — Kanjium + NHK + OJAD pitch accent lookup
   download.py               — auto-download data sources on first run
   furigana.py               — bracket-to-ruby conversion and normalisation
   normalise.py              — word normalisation for chadmuro entries
-  csv_utils.py              — checkpoint + CSV row-removal utilities
+  csv_utils.py              — checkpoint, atomic write, dedup, and CSV row-removal utilities
 
 scripts/                    — CLI entry points (run with python scripts/<name>.py)
   build.py                  — main pipeline
   generate_svgs.py          — SVG diagram generator (run after CSV is complete)
   add_language.py           — retrofit a finished CSV with a new language
   add_words.py              — append arbitrary words to a CSV
+  add_particle.py           — append pitch-accent citation particles (が/よ) to a finished CSV
   drop_words.py             — remove words from CSV and checkpoint
   dedup_words.py            — remove duplicate rows from a concatenated CSV
   fix_furigana.py           — fix malformed bracket-notation furigana in a word file
+  repair_pos.py             — backfill empty 品詞, 英語訳, and pitch accent from Jitendex
+  correct_pos.py            — fix verb rows that should be 名詞 (verbal nouns) in a finished CSV
 
 tests/
+  conftest.py
   test_build_pipeline.py
   test_dictionary.py
   test_pitch_accent.py
@@ -53,7 +59,13 @@ tests/
   test_download.py
   test_add_language_columns.py
   test_add_words.py
+  test_add_particle.py
   test_drop_words.py
+  test_dedup_words.py
+  test_fix_furigana.py
+  test_generate_svgs.py
+  test_repair_pos.py
+  test_correct_pos.py
 
 data/                       — gitignored; auto-downloaded on first run
   jitendex-yomitan/         — Jitendex (English glosses + POS + example sentences)
@@ -220,7 +232,8 @@ python scripts/build.py --model gemma4:e4b --output output/n4.csv --repair
 # Add a language to a finished CSV
 python scripts/add_language.py --language german --output output/n4.csv --model gemma4:e4b
 
-# Deduplicate a concatenated CSV (keeps first occurrence per word+furigana pair)
+# Deduplicate a concatenated CSV (first occurrence per canonical word+furigana pair;
+# canonical = trailing citation particle が/よ stripped before comparing)
 python scripts/dedup_words.py --output output/jlpt_vocab.csv
 python scripts/dedup_words.py --output output/jlpt_vocab.csv --dry-run  # preview only
 
@@ -230,8 +243,30 @@ python scripts/add_words.py 猫背 --output output/n4.csv --model gemma4:e4b
 python scripts/add_words.py --file my_words.txt --model gemma4:e4b
 python scripts/add_words.py 納豆 --file my_words.txt --model gemma4:e4b  # combined; file words first, deduped
 
+# Fix malformed bracket-notation furigana in a word file (in place)
+python scripts/fix_furigana.py --file my_words.txt --model gemma4:e4b
+
+# Remove words from a CSV and its paired checkpoint
+python scripts/drop_words.py 下りる 招致 --output output/n4.csv
+
+# Backfill empty 品詞 / 英語訳 / ピッチアクセント from Jitendex (no Ollama)
+python scripts/repair_pos.py --output output/n4.csv
+
+# Correct verb-tagged rows that are actually 名詞 (verbal nouns)
+python scripts/correct_pos.py --output output/n4.csv
+python scripts/correct_pos.py --output output/n4.csv --dry-run  # preview only
+
+# Append pitch-accent citation particles (が/よ) to 単語 and 振り仮名 — idempotent
+python scripts/add_particle.py --input output/jlpt_vocab.csv            # in place, writes .csv.bak
+python scripts/add_particle.py --input output/jlpt_vocab.csv --dry-run
+python scripts/add_particle.py --input output/jlpt_vocab.csv --output output/jlpt_vocab_particle.csv
+
+# Build with particles applied as part of the run
+python scripts/build.py --model gemma4:e4b --particles
+
 # Generate SVGs (after CSV is complete)
 python scripts/generate_svgs.py
+python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs
 ```
 
 ### Parallel runs (one level per terminal)
