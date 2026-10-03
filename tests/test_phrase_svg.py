@@ -77,10 +77,10 @@ class TestRenderPhraseSvg:
 
     def test_hollow_circle_per_particle(self):
         svg = render_phrase_svg(8, {1, 5}, {3}, {3, 8})
-        assert svg.count('fill="white"') == 2
+        assert svg.count('fill="none"') == 2
 
     def test_no_hollow_circles_without_particles(self):
-        assert 'fill="white"' not in render_phrase_svg(4, {1}, {3}, set())
+        assert 'fill="none"' not in render_phrase_svg(4, {1}, {3}, set())
 
     def test_width_has_no_particle_gap(self):
         svg = render_phrase_svg(5, {1}, {4}, {3})
@@ -95,7 +95,7 @@ class TestRenderPhraseSvg:
     def test_particle_positions_are_one_indexed(self):
         svg = render_phrase_svg(3, {1}, set(), {1})
         first = svg.split('<circle')[1]
-        assert 'fill="white"' in first
+        assert 'fill="none"' in first
 
     def test_rejects_particle_out_of_range(self):
         with pytest.raises(ValueError):

@@ -1,9 +1,11 @@
 """Tests for scripts/generate_svgs.py — SVG rendering and CSV parsing."""
 
 import csv
+import re
 
 import pytest
 
+from jlpt_vocab.svg import DOT_R
 from scripts.generate_svgs import (
     Y_HIGH, Y_LOW, MORA_W, PADDING_X, PARTICLE_GAP,
     collect_pairs, render_svg, render_unknown_svg,
@@ -28,8 +30,15 @@ class TestRenderSvg:
             assert svg.count('<circle') == mora_count + 1, f'mora_count={mora_count}'
 
     def test_particle_dot_is_hollow(self):
-        # Hollow particle dot uses fill="white"; word dots use a colour fill
-        assert render_svg(3, 0).count('fill="white"') == 1
+        # Hollow particle dot uses fill="none" (transparent); word dots use a colour fill
+        assert render_svg(3, 0).count('fill="none"') == 1
+
+    def test_line_stops_at_hollow_dot_edge(self):
+        # The particle is transparent, so the line must not show through its middle
+        svg = render_svg(2, 2)
+        x2, y2 = map(float, re.findall(r'x2="([\d.]+)" y2="([\d.]+)"', svg)[-1])
+        cx, cy = map(float, re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)"', svg)[-1])
+        assert ((cx - x2) ** 2 + (cy - y2) ** 2) ** 0.5 >= DOT_R
 
     def test_heiban_first_mora_is_low(self):
         # Heiban (pattern 0): L H H... — first dot at Y_LOW
