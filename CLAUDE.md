@@ -36,12 +36,13 @@ jlpt_vocab/                 — importable Python package (library code)
   furigana.py               — bracket-to-ruby conversion and normalisation
   normalise.py              — word normalisation for chadmuro entries
   csv_utils.py              — checkpoint, atomic write, dedup, and CSV row-removal utilities
-  svg.py                    — pitch diagram visual constants and SVG emitter
+  svg.py                    — pitch diagram visual constants, contour walker, SVG emitter
 
 scripts/                    — CLI entry points (run with python scripts/<name>.py)
   build.py                  — main pipeline
   generate_svgs.py          — SVG diagram generator (run after CSV is complete)
   phrase_svg.py             — SVG diagrams for hand-specified phrase/compound contours
+  kana_svg.py               — SVG diagrams with kana under each mora, from ＼/／ kana notation
   add_language.py           — retrofit a finished CSV with a new language
   add_words.py              — append arbitrary words to a CSV
   add_particle.py           — append pitch-accent citation particles (が/よ) to a finished CSV
@@ -67,6 +68,7 @@ tests/
   test_fix_furigana.py
   test_generate_svgs.py
   test_phrase_svg.py
+  test_kana_svg.py
   test_repair_pos.py
   test_correct_pos.py
 
@@ -203,6 +205,15 @@ low, or a rise and drop at the same boundary. Files are named
 `phrase_{mora}_r{rises}_d{drops}_p{particles}.svg`; the `phrase_` prefix keeps them clear of the
 `{mora}_{pattern}.svg` namespace that `collect_pairs` reverse-parses.
 
+**Kana diagrams** (`scripts/kana_svg.py`) — same dots plus the kana of each mora as a label row
+(`render_dots(..., labels=...)`, height `SVG_HEIGHT_LABELLED`). Input is kana notation: `＼`/`\`
+falls after the preceding mora, `／`/`/` rises, `[...]` marks particles, spaces are ignored. One
+automatic rise after the first mora (or starts high if `＼` follows mora 1) unless the first marker
+is `／`; nothing else is inferred — contour across word boundaries is context-dependent (heiban +
+heiban stays flat), so the user writes it. Compound kana (きょ, ティ) are one mora via
+`split_mora`. Files are `{kana}_r{rises}_d{drops}_p{particles}.svg`, NFC, with positions derived
+from the final levels. `pitch_levels` lives in `jlpt_vocab/svg.py`, shared with `phrase_svg.py`.
+
 ---
 
 ## Sentence verification (fugashi)
@@ -296,6 +307,10 @@ python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3   # 腹が
 python scripts/phrase_svg.py --mora 8 --rise 1 5 --drop 3 --particles 3 8
 python scripts/phrase_svg.py --file phrases.txt
 python scripts/phrase_svg.py --file phrases.txt --background white
+
+# Diagrams with kana under each mora (quote args — [ and \ are special to the shell)
+python scripts/kana_svg.py 'たべま＼した' 'はし＼[が]' 'よろし＼く お／ねがいしま＼す'
+python scripts/kana_svg.py --file examples.txt --background white
 ```
 
 ### Parallel runs (one level per terminal)

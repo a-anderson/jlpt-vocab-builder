@@ -52,31 +52,8 @@ import shlex
 from pathlib import Path
 
 from jlpt_vocab.svg import (
-    COLOR_HIGH, COLOR_LOW, MORA_W, PADDING_X, Y_HIGH, Y_LOW, render_dots,
+    COLOR_HIGH, COLOR_LOW, MORA_W, PADDING_X, Y_HIGH, Y_LOW, pitch_levels, render_dots,
 )
-
-
-def pitch_levels(mora_count: int, rises: set[int], drops: set[int]) -> list[str]:
-    """Walk the contour forward, returning one 'H'/'L' per mora."""
-    for pos in rises | drops:
-        if not 0 <= pos <= mora_count:
-            raise ValueError(f'position {pos} is outside 0..{mora_count}')
-    for pos in rises & drops:
-        raise ValueError(f'rise and drop both given after mora {pos}')
-
-    levels, level = [], 'L'
-    for i in range(mora_count + 1):
-        if i in rises:
-            if level == 'H':
-                raise ValueError(f'rise after mora {i} but the pitch is already high')
-            level = 'H'
-        if i in drops:
-            if level == 'L':
-                raise ValueError(f'drop after mora {i} but the pitch is already low')
-            level = 'L'
-        if i < mora_count:
-            levels.append(level)
-    return levels
 
 
 def render_phrase_svg(

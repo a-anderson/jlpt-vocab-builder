@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from jlpt_vocab.svg import CORNER_R, DOT_R
+from jlpt_vocab.svg import CORNER_R, DOT_R, SVG_HEIGHT, SVG_HEIGHT_LABELLED, render_dots
 from scripts.generate_svgs import (
     Y_HIGH, Y_LOW, MORA_W, PADDING_X, PARTICLE_GAP,
     collect_pairs, render_svg, render_unknown_svg,
@@ -99,6 +99,20 @@ class TestRenderSvg:
 # ---------------------------------------------------------------------------
 # render_unknown_svg
 # ---------------------------------------------------------------------------
+
+class TestRenderDotsLabels:
+    DOTS = [(38, Y_LOW, '#000', False), (74, Y_HIGH, '#000', True)]
+
+    def test_no_text_or_extra_height_by_default(self):
+        svg = render_dots(self.DOTS, 112)
+        assert '<text' not in svg
+        assert f'height="{SVG_HEIGHT}"' in svg
+
+    def test_labels_add_text_per_dot_and_grow_height(self):
+        svg = render_dots(self.DOTS, 112, labels=['は', 'が'])
+        assert re.findall(r'<text x="(\d+)"[^>]*>([^<]*)</text>', svg) == [('38', 'は'), ('74', 'が')]
+        assert f'height="{SVG_HEIGHT_LABELLED}"' in svg
+
 
 class TestRenderUnknownSvg:
     def test_is_valid_svg(self):
