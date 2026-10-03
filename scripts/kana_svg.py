@@ -49,7 +49,7 @@ from pathlib import Path
 
 from jlpt_vocab.pitch_accent import split_mora
 from jlpt_vocab.svg import (
-    COLOR_HIGH, COLOR_LOW, MORA_W, PADDING_X, Y_HIGH, Y_LOW, pitch_levels, render_dots,
+    COLOR_HIGH, COLOR_LOW, MORA_W, LABELLED_PADDING_X, Y_HIGH, Y_LOW, pitch_levels, render_dots,
 )
 
 DROP, RISE = '＼', '／'
@@ -129,10 +129,10 @@ def svg_name(line: str) -> str:
 def render_kana_svg(line: str, background: str | None = None) -> str:
     """Generate an SVG string with kana labels for a notation line."""
     mora, levels, particles = parse_notation(line)
-    width = PADDING_X * 2 + len(mora) * MORA_W
+    width = LABELLED_PADDING_X * 2 + len(mora) * MORA_W
     dots = []
     for i, level in enumerate(levels):
-        cx = PADDING_X + i * MORA_W + MORA_W // 2
+        cx = LABELLED_PADDING_X + i * MORA_W + MORA_W // 2
         cy = Y_HIGH if level == 'H' else Y_LOW
         colour = COLOR_HIGH if level == 'H' else COLOR_LOW
         dots.append((cx, cy, colour, i + 1 in particles))

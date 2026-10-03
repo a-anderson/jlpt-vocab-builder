@@ -5,7 +5,7 @@ import unicodedata
 
 import pytest
 
-from jlpt_vocab.svg import CORNER_R, LABEL_Y, MORA_W, PADDING_X, SVG_HEIGHT_LABELLED
+from jlpt_vocab.svg import CORNER_R, LABEL_Y, MORA_W, LABELLED_PADDING_X, SVG_HEIGHT_LABELLED
 from scripts.kana_svg import parse_notation, read_lines, render_kana_svg, svg_name
 
 
@@ -176,14 +176,14 @@ class TestRenderKanaSvg:
     def test_labels_centred_under_dots(self):
         svg = render_kana_svg('たべる')
         xs = [int(x) for x in re.findall(r'<text x="(\d+)"', svg)]
-        assert xs == [PADDING_X + i * MORA_W + MORA_W // 2 for i in range(3)]
+        assert xs == [LABELLED_PADDING_X + i * MORA_W + MORA_W // 2 for i in range(3)]
         assert f'y="{LABEL_Y}"' in svg
 
     def test_labelled_height(self):
         assert f'height="{SVG_HEIGHT_LABELLED}"' in render_kana_svg('たべる')
 
     def test_width_matches_mora_count(self):
-        assert f'width="{PADDING_X * 2 + 4 * MORA_W}"' in render_kana_svg('はし＼[が]よ')
+        assert f'width="{LABELLED_PADDING_X * 2 + 4 * MORA_W}"' in render_kana_svg('はし＼[が]よ')
 
     def test_particles_hollow(self):
         assert render_kana_svg('ここ[から]').count('fill="none"') == 2
