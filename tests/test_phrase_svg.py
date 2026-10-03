@@ -1,8 +1,10 @@
 """Tests for scripts/phrase_svg.py — hand-specified pitch contours for phrases."""
 
+import re
+
 import pytest
 
-from jlpt_vocab.svg import MORA_W, PADDING_X, Y_HIGH, Y_LOW
+from jlpt_vocab.svg import CORNER_R, MORA_W, PADDING_X, Y_HIGH, Y_LOW
 from scripts.generate_svgs import pitch_sequence
 from scripts.phrase_svg import (
     pitch_levels, read_specs, render_phrase_svg, svg_name,
@@ -96,6 +98,11 @@ class TestRenderPhraseSvg:
         svg = render_phrase_svg(3, {1}, set(), {1})
         first = svg.split('<circle')[1]
         assert 'fill="none"' in first
+
+    def test_background_fills_particles_and_rounds_corners(self):
+        svg = render_phrase_svg(5, {1}, {4}, {3}, background='white')
+        assert re.search(rf'<rect[^>]*rx="{CORNER_R}"[^>]*fill="white"', svg)
+        assert 'fill="none"' not in svg
 
     def test_rejects_particle_out_of_range(self):
         with pytest.raises(ValueError):

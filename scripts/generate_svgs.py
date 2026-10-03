@@ -26,6 +26,7 @@ Particle pitch rule:
 Usage:
   python scripts/generate_svgs.py
   python scripts/generate_svgs.py --input output/my_vocab.csv --out_dir output/my_svgs/
+  python scripts/generate_svgs.py --background white   # opaque, rounded corners
 
 For Anki:
   Copy all SVGs into your Anki media folder:
@@ -39,8 +40,8 @@ import csv
 from pathlib import Path
 
 from jlpt_vocab.svg import (
-    COLOR_HIGH, COLOR_LOW, MORA_W, PADDING_X, PARTICLE_GAP, Y_HIGH, Y_LOW,
-    render_dots,
+    COLOR_HIGH, COLOR_LOW, MORA_W, PADDING_X, PARTICLE_GAP, SVG_HEIGHT, Y_HIGH, Y_LOW,
+    background_rect, render_dots,
 )
 
 
@@ -91,7 +92,7 @@ def particle_level(mora_count: int, pattern: int) -> str:
 # SVG generation
 # ---------------------------------------------------------------------------
 
-def render_svg(mora_count: int, pattern: int) -> str:
+def render_svg(mora_count: int, pattern: int, background: str | None = None) -> str:
     """Generate SVG string for a given mora count and drop pattern."""
     seq = pitch_sequence(mora_count, pattern)
     p_level = particle_level(mora_count, pattern)
@@ -113,15 +114,16 @@ def render_svg(mora_count: int, pattern: int) -> str:
     p_colour = COLOR_HIGH if p_level == "H" else COLOR_LOW
     dots.append((p_cx, p_cy, p_colour, True))
 
-    return render_dots(dots, width)
+    return render_dots(dots, width, background)
 
 
-def render_unknown_svg() -> str:
+def render_unknown_svg(background: str | None = None) -> str:
     """Minimal placeholder SVG for words with no pitch data."""
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="72"'
-        ' viewBox="0 0 40 72">'
-        '<text x="20" y="40" text-anchor="middle" font-size="24"'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="{SVG_HEIGHT}"'
+        f' viewBox="0 0 40 {SVG_HEIGHT}">'
+        + "".join(r.strip() for r in background_rect(40, SVG_HEIGHT, background))
+        + '<text x="20" y="40" text-anchor="middle" font-size="24"'
         ' font-family="sans-serif" fill="#999">?</text>'
         '</svg>'
     )
@@ -167,6 +169,8 @@ def main():
     parser = argparse.ArgumentParser(description="Generate pitch accent SVG files")
     parser.add_argument("--input", default="output/jlpt_vocab.csv", help="Input CSV path")
     parser.add_argument("--out_dir", default="output/pitch_svgs", help="Output directory for SVGs")
+    parser.add_argument("--background", default=None,
+                        help="Background colour, e.g. white (default: transparent); rounds the corners")
     args = parser.parse_args()
 
     csv_path = Path(args.input)
@@ -190,14 +194,14 @@ def main():
                   f"(pattern > mora_count)")
             skipped += 1
             continue
-        svg = render_svg(mora_count, pattern)
+        svg = render_svg(mora_count, pattern, args.background)
         out_path = out_dir / f"{mora_count}_{pattern}.svg"
         out_path.write_text(svg, encoding="utf-8")
         generated += 1
 
     if has_unknown:
         out_path = out_dir / "unknown.svg"
-        out_path.write_text(render_unknown_svg(), encoding="utf-8")
+        out_path.write_text(render_unknown_svg(args.background), encoding="utf-8")
         print("  Generated unknown.svg (placeholder for missing pitch data)")
 
     if skipped:

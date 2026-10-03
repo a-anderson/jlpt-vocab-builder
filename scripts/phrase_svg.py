@@ -35,6 +35,7 @@ Usage:
 
   python scripts/phrase_svg.py --file phrases.txt
   python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --out_dir output/my_svgs
+  python scripts/phrase_svg.py --file phrases.txt --background white
 
 Spec file format — one set of flags per line, blank lines and # comments skipped:
 
@@ -79,7 +80,8 @@ def pitch_levels(mora_count: int, rises: set[int], drops: set[int]) -> list[str]
 
 
 def render_phrase_svg(
-    mora_count: int, rises: set[int], drops: set[int], particles: set[int]
+    mora_count: int, rises: set[int], drops: set[int], particles: set[int],
+    background: str | None = None,
 ) -> str:
     """Generate SVG string for an explicitly specified pitch contour."""
     levels = pitch_levels(mora_count, rises, drops)
@@ -95,7 +97,7 @@ def render_phrase_svg(
         colour = COLOR_HIGH if level == 'H' else COLOR_LOW
         dots.append((cx, cy, colour, i + 1 in particles))
 
-    return render_dots(dots, width)
+    return render_dots(dots, width, background)
 
 
 def svg_name(
@@ -121,6 +123,8 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument('--file', default=None,
                         help='Text file with one set of flags per line; # comments ignored')
     parser.add_argument('--out_dir', default='output/pitch_svgs', help='Output directory for SVGs')
+    parser.add_argument('--background', default=None,
+                        help='Background colour, e.g. white (default: transparent); rounds the corners')
     return parser
 
 
@@ -136,9 +140,9 @@ def read_specs(path: Path) -> list[argparse.Namespace]:
     return specs
 
 
-def write_spec(spec: argparse.Namespace, out_dir: Path) -> None:
+def write_spec(spec: argparse.Namespace, out_dir: Path, background: str | None) -> None:
     rises, drops, particles = set(spec.rise), set(spec.drop), set(spec.particles)
-    svg = render_phrase_svg(spec.mora, rises, drops, particles)
+    svg = render_phrase_svg(spec.mora, rises, drops, particles, background)
     name = svg_name(spec.mora, rises, drops, particles)
     (out_dir / name).write_text(svg, encoding='utf-8')
     print(f'{name}  {"".join(pitch_levels(spec.mora, rises, drops))}')
@@ -154,7 +158,7 @@ def main() -> None:
 
     specs = read_specs(Path(args.file)) if args.file else [args]
     for spec in specs:
-        write_spec(spec, out_dir)
+        write_spec(spec, out_dir, args.background)
 
     print(f'\nWrote {len(specs)} SVG(s) to {out_dir}/')
 

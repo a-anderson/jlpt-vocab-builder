@@ -8,6 +8,7 @@ Y_HIGH = 16          # y centre for high dots
 Y_LOW = 52           # y centre for low dots
 SVG_HEIGHT = 72      # total SVG height
 LINE_W = 4           # connecting line stroke width
+CORNER_R = 8         # background corner radius
 
 COLOR_HIGH = "#E05A6A"
 COLOR_LOW = "#4EC3E0"
@@ -29,7 +30,16 @@ def _trim_line(x1, y1, x2, y2, hollow1: bool, hollow2: bool) -> tuple:
     return x1, y1, x2, y2
 
 
-def render_dots(dots: list[tuple[int, int, str, bool]], width: int) -> str:
+def background_rect(width: int, height: int, background: str | None) -> list[str]:
+    """Return a rounded background rect element, or nothing when transparent."""
+    if background is None:
+        return []
+    return [f'  <rect width="{width}" height="{height}" rx="{CORNER_R}" fill="{background}"/>']
+
+
+def render_dots(
+    dots: list[tuple[int, int, str, bool]], width: int, background: str | None = None
+) -> str:
     """Emit an SVG from (cx, cy, colour, hollow) dots, joined by connecting lines."""
     lines = []
     for i in range(1, len(dots)):
@@ -41,6 +51,7 @@ def render_dots(dots: list[tuple[int, int, str, bool]], width: int) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg"',
         f'     width="{width}" height="{SVG_HEIGHT}"',
         f'     viewBox="0 0 {width} {SVG_HEIGHT}">',
+        *background_rect(width, SVG_HEIGHT, background),
     ]
 
     # Lines behind dots
@@ -51,12 +62,13 @@ def render_dots(dots: list[tuple[int, int, str, bool]], width: int) -> str:
             f' stroke-linecap="round"/>'
         )
 
-    # Dots — solid for word mora, hollow (transparent fill) for particles
+    # Dots — solid for word mora, hollow (background-filled) for particles
+    hollow_fill = background or "none"
     for cx, cy, colour, hollow in dots:
         if hollow:
             parts.append(
                 f'  <circle cx="{cx}" cy="{cy}" r="{DOT_R}"'
-                f' fill="none" stroke="{colour}" stroke-width="3"/>'
+                f' fill="{hollow_fill}" stroke="{colour}" stroke-width="3"/>'
             )
         else:
             parts.append(

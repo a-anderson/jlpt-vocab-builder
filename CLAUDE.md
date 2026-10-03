@@ -289,11 +289,13 @@ python scripts/build.py --model gemma4:e4b --particles
 # Generate SVGs (after CSV is complete)
 python scripts/generate_svgs.py
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs
+python scripts/generate_svgs.py --background white   # opaque bg + particle fill, rounded corners
 
 # Draw a phrase/compound contour by hand (multiple rises and falls, mid-phrase particles)
 python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3   # 腹が立つ
 python scripts/phrase_svg.py --mora 8 --rise 1 5 --drop 3 --particles 3 8
 python scripts/phrase_svg.py --file phrases.txt
+python scripts/phrase_svg.py --file phrases.txt --background white
 ```
 
 ### Parallel runs (one level per terminal)
