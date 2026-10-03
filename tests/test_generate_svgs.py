@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from jlpt_vocab.svg import DOT_R
+from jlpt_vocab.svg import CORNER_R, DOT_R
 from scripts.generate_svgs import (
     Y_HIGH, Y_LOW, MORA_W, PADDING_X, PARTICLE_GAP,
     collect_pairs, render_svg, render_unknown_svg,
@@ -39,6 +39,23 @@ class TestRenderSvg:
         x2, y2 = map(float, re.findall(r'x2="([\d.]+)" y2="([\d.]+)"', svg)[-1])
         cx, cy = map(float, re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)"', svg)[-1])
         assert ((cx - x2) ** 2 + (cy - y2) ** 2) ** 0.5 >= DOT_R
+
+    def test_transparent_by_default(self):
+        assert '<rect' not in render_svg(3, 0)
+
+    def test_background_draws_rounded_rect(self):
+        rect = re.search(r'<rect[^>]*/>', render_svg(3, 0, background='white')).group(0)
+        assert 'fill="white"' in rect
+        assert f'rx="{CORNER_R}"' in rect
+
+    def test_background_fills_particle(self):
+        svg = render_svg(3, 0, background='white')
+        assert 'fill="none"' not in svg
+        assert re.search(r'<circle[^>]*fill="white"', svg)
+
+    def test_background_drawn_first(self):
+        svg = render_svg(3, 0, background='white')
+        assert svg.index('<rect') < svg.index('<line')
 
     def test_heiban_first_mora_is_low(self):
         # Heiban (pattern 0): L H H... — first dot at Y_LOW
@@ -86,6 +103,14 @@ class TestRenderSvg:
 class TestRenderUnknownSvg:
     def test_is_valid_svg(self):
         assert render_unknown_svg().startswith('<svg')
+
+    def test_transparent_by_default(self):
+        assert '<rect' not in render_unknown_svg()
+
+    def test_background_draws_rounded_rect(self):
+        svg = render_unknown_svg(background='white')
+        assert re.search(rf'<rect[^>]*rx="{CORNER_R}"[^>]*fill="white"', svg)
+        assert svg.index('<rect') < svg.index('<text')
 
     def test_contains_question_mark(self):
         assert '?' in render_unknown_svg()

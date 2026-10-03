@@ -87,6 +87,9 @@ python scripts/generate_svgs.py
 # Generate pitch accent SVGs from a specified CSV file
 python scripts/generate_svgs.py --input output/n4.csv --out_dir output/pitch_svgs/
 
+# Opaque background instead of transparent — see "Pitch diagram background" below
+python scripts/generate_svgs.py --background white
+
 # Draw a diagram for a phrase or compound by hand — see "Pitch diagrams for
 # phrases and compound words" below for the full flag reference
 python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3
@@ -151,14 +154,15 @@ mora. On a four-mora word:
 
 Repeat either flag for a phrase that goes up and down more than once, e.g. `--rise 1 5 --drop 3`.
 
-| Flag          | Meaning                                                          |
-| ------------- | ---------------------------------------------------------------- |
-| `--mora`      | Total mora in the phrase, particles included                     |
-| `--rise`      | Pitch rises after mora N; `0` means the phrase starts high       |
-| `--drop`      | Pitch falls after mora N; same numbering as the accent pattern   |
-| `--particles` | Mora drawn as hollow circles — 1-indexed mora, not boundaries    |
-| `--file`      | Text file of specs, one per line; `#` comments ignored           |
-| `--out_dir`   | Output directory (default `output/pitch_svgs`)                   |
+| Flag           | Meaning                                                           |
+| -------------- | ----------------------------------------------------------------- |
+| `--mora`       | Total mora in the phrase, particles included                      |
+| `--rise`       | Pitch rises after mora N; `0` means the phrase starts high        |
+| `--drop`       | Pitch falls after mora N; same numbering as the accent pattern    |
+| `--particles`  | Mora drawn as hollow circles — 1-indexed mora, not boundaries     |
+| `--file`       | Text file of specs, one per line; `#` comments ignored            |
+| `--out_dir`    | Output directory (default `output/pitch_svgs`)                    |
+| `--background` | Background colour, e.g. `white` (default transparent) — see below |
 
 Each generated file prints its resulting level string (`phrase_5_r1_d4_p3.svg  LHHHL`) so the
 contour can be checked before import. A toggle that does nothing is rejected — a rise while already
@@ -177,6 +181,29 @@ A spec file looks like:
 # 頭が上がらない / あたまがあがらない
 --mora 9 --rise 1 --drop 3 --particles 4
 ```
+
+`--background` is given on the command line and applies to every line of the file — it is not read
+from the spec lines themselves.
+
+---
+
+## Pitch diagram background
+
+Diagrams are transparent by default, including the middle of the hollow particle circles, so they
+sit cleanly on any card colour (light or dark mode). Pass `--background` to both scripts for an
+opaque diagram instead:
+
+```bash
+python scripts/generate_svgs.py --background white
+python scripts/phrase_svg.py --file phrases.txt --background white
+```
+
+This fills the whole diagram with the given colour, rounds its corners slightly, and fills the
+particle circles with the same colour. Any SVG colour works (`white`, `#fafafa`, `ivory`, …).
+`unknown.svg` gets the same background so the set stays consistent.
+
+Filenames are the same either way, so pick a separate `--out_dir` if you want to keep both a
+transparent and an opaque set.
 
 ---
 
