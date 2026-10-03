@@ -9,10 +9,37 @@ Y_LOW = 52           # y centre for low dots
 SVG_HEIGHT = 72      # total SVG height
 LINE_W = 4           # connecting line stroke width
 CORNER_R = 8         # background corner radius
+LABEL_Y = 82         # text baseline for kana labels under the dots
+LABEL_SIZE = 16      # kana label font size — two-char mora (きょ) fit within MORA_W
+LABEL_FONT = "'Hiragino Sans', 'Noto Sans JP', sans-serif"
+SVG_HEIGHT_LABELLED = 92  # total SVG height with a kana label row
 
 COLOR_HIGH = "#E05A6A"
 COLOR_LOW = "#4EC3E0"
 COLOR_LINE = "#1A1A1A"
+
+
+def pitch_levels(mora_count: int, rises: set[int], drops: set[int]) -> list[str]:
+    """Walk the contour forward, returning one 'H'/'L' per mora."""
+    for pos in rises | drops:
+        if not 0 <= pos <= mora_count:
+            raise ValueError(f'position {pos} is outside 0..{mora_count}')
+    for pos in rises & drops:
+        raise ValueError(f'rise and drop both given after mora {pos}')
+
+    levels, level = [], 'L'
+    for i in range(mora_count + 1):
+        if i in rises:
+            if level == 'H':
+                raise ValueError(f'rise after mora {i} but the pitch is already high')
+            level = 'H'
+        if i in drops:
+            if level == 'L':
+                raise ValueError(f'drop after mora {i} but the pitch is already low')
+            level = 'L'
+        if i < mora_count:
+            levels.append(level)
+    return levels
 
 
 def _trim_line(x1, y1, x2, y2, hollow1: bool, hollow2: bool) -> tuple:
@@ -38,20 +65,22 @@ def background_rect(width: int, height: int, background: str | None) -> list[str
 
 
 def render_dots(
-    dots: list[tuple[int, int, str, bool]], width: int, background: str | None = None
+    dots: list[tuple[int, int, str, bool]], width: int, background: str | None = None,
+    labels: list[str] | None = None,
 ) -> str:
-    """Emit an SVG from (cx, cy, colour, hollow) dots, joined by connecting lines."""
+    """Emit an SVG from (cx, cy, colour, hollow) dots, optionally labelled underneath."""
     lines = []
     for i in range(1, len(dots)):
         x1, y1, _, hollow1 = dots[i - 1]
         x2, y2, _, hollow2 = dots[i]
         lines.append(_trim_line(x1, y1, x2, y2, hollow1, hollow2))
 
+    height = SVG_HEIGHT if labels is None else SVG_HEIGHT_LABELLED
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg"',
-        f'     width="{width}" height="{SVG_HEIGHT}"',
-        f'     viewBox="0 0 {width} {SVG_HEIGHT}">',
-        *background_rect(width, SVG_HEIGHT, background),
+        f'     width="{width}" height="{height}"',
+        f'     viewBox="0 0 {width} {height}">',
+        *background_rect(width, height, background),
     ]
 
     # Lines behind dots
@@ -75,6 +104,13 @@ def render_dots(
                 f'  <circle cx="{cx}" cy="{cy}" r="{DOT_R}"'
                 f' fill="{colour}" stroke="{COLOR_LINE}" stroke-width="2"/>'
             )
+
+    for (cx, _, _, _), label in zip(dots, labels or []):
+        parts.append(
+            f'  <text x="{cx}" y="{LABEL_Y}" text-anchor="middle"'
+            f' font-size="{LABEL_SIZE}" font-family="{LABEL_FONT}"'
+            f' fill="{COLOR_LINE}">{label}</text>'
+        )
 
     parts.append('</svg>')
     return "\n".join(parts)

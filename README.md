@@ -93,6 +93,10 @@ python scripts/generate_svgs.py --background white
 # Draw a diagram for a phrase or compound by hand — see "Pitch diagrams for
 # phrases and compound words" below for the full flag reference
 python scripts/phrase_svg.py --mora 5 --rise 1 --drop 4 --particles 3
+
+# Diagram with kana under each mora, for any form or phrase — see "Pitch
+# diagrams with kana" below
+python scripts/kana_svg.py 'たべま＼した' 'はし＼[が]'
 ```
 
 The pipeline writes rows incrementally and checkpoints after every word, so `--resume` picks up exactly where it left off.
@@ -187,15 +191,65 @@ from the spec lines themselves.
 
 ---
 
+## Pitch diagrams with kana
+
+`kana_svg.py` draws the same diagram with the kana of each mora written under its dot. You type
+each form exactly as you want it, so it works for conjugations (たべま＼した, た＼べて) and whole
+phrases, not just dictionary forms — handy for making cards from lesson examples.
+
+```bash
+# Quote each notation — [ and \ are special to the shell
+python scripts/kana_svg.py 'たべま＼した' 'た＼べて' 'はし＼[が]'
+
+# Batch: one notation per line, # comments and blank lines skipped
+python scripts/kana_svg.py --file examples.txt
+```
+
+| Mark          | Meaning                                                                |
+| ------------- | ---------------------------------------------------------------------- |
+| `＼` or `\`   | Pitch falls after the preceding mora                                   |
+| `／` or `/`   | Pitch rises after the preceding mora; at the very start = starts high  |
+| `[...]`       | Particle mora — hollow dots, kana still shown underneath               |
+| space         | Ignored — for readability only                                         |
+
+The line starts low and rises after the first mora, unless the first mora is followed by `＼`
+(atamadaka, which starts high). If the first marker in the line is a `／`, that is the first rise
+instead and nothing is added. Nothing else is inferred: Japanese has no word spaces, and the
+contour across a word boundary depends on the neighbouring words (a heiban word after a heiban
+word stays flat), so every later rise is written with `／`.
+
+```
+たべま＼した                    LHHLL
+た＼べて                        HLL
+はし＼[が]                      LHL          drops onto the particle
+あたま[が]あがらない             LHHHHHHHH    heiban + heiban stays flat
+よろし＼く お／ねがいしま＼す     LHHLLHHHHHL  second rise marked explicitly
+あた／まが                      LLHH         leading ／ replaces the automatic rise
+```
+
+Compound kana — きょ, しゃ, ティ, ファ and so on — count as one mora, with one dot and one label.
+Hiragana, katakana and `ー` are accepted; anything else (kanji, romaji, punctuation) is an error,
+as is a toggle that does nothing (a rise while already high, a drop while already low) or a marker
+splitting a compound (`き＼ょ`).
+
+Files are named after the kana and the contour: `{kana}_r{rises}_d{drops}_p{particles}.svg`, with
+empty sections left out — e.g. `たべました_r1_d3.svg`, `はしが_r1_d2_p3.svg`. Positions use the
+same numbering as `phrase_svg.py`, `r0` means it starts high, and identical diagrams share a file.
+Names are stored in NFC so macOS can't split dakuten into separate characters and break the Anki
+link. Each file prints its level string (`たべました_r1_d3.svg  LHHLL`) so you can check it.
+
+---
+
 ## Pitch diagram background
 
 Diagrams are transparent by default, including the middle of the hollow particle circles, so they
-sit cleanly on any card colour (light or dark mode). Pass `--background` to both scripts for an
-opaque diagram instead:
+sit cleanly on any card colour (light or dark mode). Pass `--background` to any of the diagram
+scripts for an opaque diagram instead:
 
 ```bash
 python scripts/generate_svgs.py --background white
 python scripts/phrase_svg.py --file phrases.txt --background white
+python scripts/kana_svg.py --file examples.txt --background white
 ```
 
 This fills the whole diagram with the given colour, rounds its corners slightly, and fills the
