@@ -9,10 +9,13 @@ Y_LOW = 52           # y centre for low dots
 SVG_HEIGHT = 72      # total SVG height
 LINE_W = 4           # connecting line stroke width
 CORNER_R = 8         # background corner radius
-LABEL_Y = 82         # text baseline for kana labels under the dots
-LABEL_SIZE = 16      # kana label font size — two-char mora (きょ) fit within MORA_W
+LABEL_Y = 84         # text baseline for kana labels under the dots
+LABEL_SIZE = 17      # kana label font size — largest where two-char mora (きょきょ) don't touch
+# Thin outline for a slightly heavier label; font-weight jumps Hiragino from W3 straight to W6
+LABEL_STROKE = 0.4
 LABEL_FONT = "'Hiragino Sans', 'Noto Sans JP', sans-serif"
-SVG_HEIGHT_LABELLED = 92  # total SVG height with a kana label row
+SVG_HEIGHT_LABELLED = 94  # total SVG height with a kana label row
+LABELLED_PADDING_X = 10   # tighter sides for labelled diagrams, closer to their top/bottom margin
 
 COLOR_HIGH = "#E05A6A"
 COLOR_LOW = "#4EC3E0"
@@ -109,7 +112,8 @@ def render_dots(
         parts.append(
             f'  <text x="{cx}" y="{LABEL_Y}" text-anchor="middle"'
             f' font-size="{LABEL_SIZE}" font-family="{LABEL_FONT}"'
-            f' fill="{COLOR_LINE}">{label}</text>'
+            f' fill="{COLOR_LINE}" stroke="{COLOR_LINE}" stroke-width="{LABEL_STROKE}">'
+            f'{label}</text>'
         )
 
     parts.append('</svg>')
